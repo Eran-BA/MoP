@@ -187,7 +187,7 @@ Quick subset run to validate wiring and get a rough A/B signal:
 | CIFAR-10 (tiny smoke) | 0.279 | 0.332 |
 
 <p align="center">
-  <img src="outputs/cifar10_smoke_bar.png" width="360" alt="CIFAR-10 tiny-smoke A/B">
+  <img src="docs/assets/cifar10_smoke_bar.png" width="360" alt="CIFAR-10 tiny-smoke A/B">
 </p>
 
 
