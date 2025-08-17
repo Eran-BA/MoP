@@ -345,8 +345,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Community adoption and feedback
 
 
-### 🔮 Next:
-- [ ] Run for multiple seeds for decrease variance.
+### What's Next:
 - [ ] Filter-Bank Mixture-of-Products:
 - [ ] Generalizing from two lenses to a small bank of structural lenses via causal depthwise convolutions on Q/K(1...M):
 - [ ] Multi-scale kernels with varying dilations
