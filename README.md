@@ -349,6 +349,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Filter-Bank Mixture-of-Products:
 - [ ] Generalizing from two lenses to a small bank of structural lenses via causal depthwise convolutions on Q/K(1...M):
 - [ ] Multi-scale kernels with varying dilations
+- [ ] Parallel Run of CNN filters on top of the bank of lenses (Product 1 , Product 2, .... Product M)
 - [ ] Gate-free log-space multiplication (gate is optional)
 
 
