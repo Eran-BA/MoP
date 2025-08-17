@@ -4,7 +4,7 @@
 [![CI](https://github.com/Eran-BA/MoP/actions/workflows/ci.yml/badge.svg)](https://github.com/Eran-BA/MoP/actions)
 [![Python 3.8+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-red.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5186--5594-green.svg)](https://orcid.org/0009-0005-5186-5594)
 
 ## Overview
