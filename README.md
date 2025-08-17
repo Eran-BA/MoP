@@ -344,6 +344,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Conference submissions (NeurIPS, ICML, ICLR)
 - [ ] Community adoption and feedback
 
+
+### 🔮 Next:
+- [ ] Run for multiple seeds for decrease variance.
+- [ ] Filter-Bank Mixture-of-Products:
+- [ ] Generalizing from two lenses to a small bank of structural lenses via causal depthwise convolutions on Q/K(1...M):
+- [ ] Multi-scale kernels with varying dilations
+- [ ] Gate-free log-space multiplication (gate is optional)
+
+
 ## Contact & Collaboration
 
 **Eran Ben Artzy**
