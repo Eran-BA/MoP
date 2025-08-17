@@ -1,7 +1,5 @@
 # MoP: Mixture of Products for Transformers
 
-**Spatial Boolean Logic for Neural Networks**
-
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +7,7 @@
 
 ## Overview
 
-MoP introduces spatial boolean logic capabilities to Transformers through a novel **Mixture of Products** mechanism. This approach enhances spatial reasoning by learning excitatory/inhibitory gating patterns that can realize boolean operations like AND, OR, and NOT over feature representations.
+MoP introduces even spatial boolean logic capabilities to Transformers through a novel **Mixture of Products** mechanism. This approach enhances spatial reasoning by learning excitatory/inhibitory gating patterns that can realize boolean operations like AND, OR, and NOT over feature representations.
 
 The MoP mechanism is **architecture-agnostic** and has been successfully implemented across multiple modalities:
 - **Vision Transformers (ViT)** - Spatial reasoning for images ✅ *Implemented*
