@@ -45,41 +45,8 @@ Input → Transformer Encoder → [Views + Kernels] → Exc/Inh Gates → Modula
 
 Our GPT-MoP implementation features the **Quartet Attention** mechanism, which extends standard scaled dot-product attention with dual-path processing:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              QUARTET ATTENTION                                    │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                     │
-│  Input X                                                                           │
-│     │                                                                              │
-│     ├─ Q_proj ──┐                                                                │
-│     ├─ K_proj ──┼─ QK^T * scale ── Z-norm QK ──┐                                │
-│     ├─ Q2_proj ─┤                                │                                │
-│     ├─ K2_proj ─┼─ Q2K2^T * scale ── Z-norm Q2K2 ──┐                            │
-│     ├─ V_proj ──┤                                │  │                            │
-│     └─ gate m ──┴────────────────────────────────┼──┼── Mixture ── Causal Mask   │
-│                                                   │  │              │              │
-│                                                   │  └──────────────┘              │
-│                                                   └────────────────────────────────┘
-│                                                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────────────────┐ │
-│  │                              GPT-2 BASELINE                                    │ │
-│  ├─────────────────────────────────────────────────────────────────────────────────┤ │
-│  │                                                                                 │ │
-│  │  Input X                                                                       │ │
-│  │     │                                                                          │ │
-│  │     ├─ Q_proj ──┐                                                            │ │
-│  │     ├─ K_proj ──┼─ QK^T * scale ── Z-score normalize ── Causal Mask          │ │
-│  │     └─ V_proj ──┘                                    │                        │ │
-│  │                                                       └─ Softmax ── Attention │
-│  │                                                                      Weights    │
-│  └─────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                     │
-│  Both architectures continue with:                                                  │
-│  Attention Weights ── Matmul with V ── O_proj                                      │
-│                                                                                     │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-```
+<img width="741" height="671" alt="Screenshot 2025-08-16 at 17 30 39" src="https://github.com/user-attachments/assets/c7c6b736-353e-4aea-bec4-e5d3b36d160d" />
+
 
 **Key Innovations:**
 - **Dual-Path Processing**: Parallel QK and Q2K2 attention score calculations
