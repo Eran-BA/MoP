@@ -305,10 +305,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 If you use MoP in your research, please cite:
 
 ```bibtex
-@misc{benartzy2024mop,
+@misc{benartzy2025mop,
   title={MoP: Mixture of Products for Transformers - Spatial Boolean Logic for Neural Networks},
   author={Ben Artzy, Eran},
-  year={2024},
+  year={2025},
   url={https://github.com/Eran-BA/MoP},
   note={ORCID: 0009-0005-5186-5594}
 }
