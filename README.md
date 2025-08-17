@@ -8,7 +8,7 @@
 ## Overview
 
 
-> **Project status (2025-08-17):** Research prototype. The `main` branch implements **ViT-MoP**. **GPT-MoP** and **Whisper-MoP** are *planned* (concept only; not on `main`). Reported metrics here are tiny-smoke sanity checks and **not** conclusive.
+> **Project status (2025-08-17):** Research prototype. The `main` branch implements **ViT-MoP**. Although **GPT-MoP** and **Whisper-MoP** are *planned* (concept only; not on `main`). Reported metrics here are tiny-smoke sanity checks and **not** conclusive.
 
 MoP introduces even spatial boolean logic capabilities to Transformers through a novel **Mixture of Products** mechanism. This approach enhances spatial reasoning by learning excitatory/inhibitory gating patterns that can realize boolean operations like AND, OR, and NOT over feature representations.
 
