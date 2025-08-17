@@ -1,0 +1,9 @@
+torch>=2.2
+torchvision>=0.17
+numpy>=1.23
+tqdm>=4.66
+einops>=0.7
+matplotlib>=3.8
+scipy>=1.11
+statsmodels>=0.14
+pytest>=8.0
