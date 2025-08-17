@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: "Mixture of Products (MoP) Transformers"
+message: "If you use this repository, please cite it using the metadata below."
+authors:
+  - name: "Eran Ben Artzy"
+repository-code: "https://github.com/Eran-BA/MoP"
+url: "https://github.com/Eran-BA/MoP"
+license: "MIT"
+date-released: "2025-08-17"
