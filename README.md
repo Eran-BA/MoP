@@ -1,7 +1,7 @@
 # MoP: Mixture of Products for Transformers
-
+[![CI](https://github.com/Eran-BA/MoP/actions/workflows/ci.yml/badge.svg)](https://github.com/Eran-BA/MoP/actions)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-red.svg)](https://pytorch.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5186--5594-green.svg)](https://orcid.org/0009-0005-5186-5594)
 
@@ -81,8 +81,10 @@ pip install -e .
 
 ### Verify Installation
 ```bash
-python test_models.py
+pytest
+python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
 ```
+The smoke script auto-detects your device (`cuda`/`mps`/`cpu`) and writes a CSV to `results/cifar10/cifar10_acc.csv`.
 
 ## Implementations
 
@@ -177,6 +179,18 @@ print(f"MoP: {count_params(mop_model):,} parameters")
 # Output: Nearly identical parameter counts for fair comparison
 ```
 
+### Sanity Check (Tiny CIFAR-10 smoke)
+Quick subset run to validate wiring and get a rough A/B signal:
+
+| setting | baseline | MoP |
+|--------:|:--------:|:---:|
+| CIFAR-10 (tiny smoke) | 0.279 | 0.332 |
+
+<p align="center">
+  <img src="outputs/cifar10_smoke_bar.png" width="360" alt="CIFAR-10 tiny-smoke A/B">
+</p>
+
+
 ## Results
 
 ### Vision Transformer Results (ViT + MoP on CIFAR)
@@ -223,11 +237,11 @@ from mop.models import ViTEncoder, PatchEmbed, MSA, MLP, Block
 
 ## Experiments
 
-*Note: Training scripts coming soon! Currently includes model implementations.*
+*Note:* **CIFAR-10 smoke training script is included** under `experiments/`. CIFAR-100 and ablations are marked as planned.
 
-### CIFAR-10 Comparison (Planned)
+### CIFAR-10 Smoke Run
 ```bash
-python experiments/cifar10_multi_seed.py --seeds 0 1 2 3 4 --output results/cifar10
+python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
 ```
 
 ### CIFAR-100 with Augmentation (Planned)
