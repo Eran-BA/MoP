@@ -1,18 +1,21 @@
 # MoP: Mixture of Products for Transformers
 [![CI](https://github.com/Eran-BA/MoP/actions/workflows/ci.yml/badge.svg)](https://github.com/Eran-BA/MoP/actions)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5186--5594-green.svg)](https://orcid.org/0009-0005-5186-5594)
 
 ## Overview
 
+
+> **Project status (2025-08-17):** Research prototype. The `main` branch implements **ViT-MoP**. **GPT-MoP** and **Whisper-MoP** are *planned* (concept only; not on `main`). Reported metrics here are tiny-smoke sanity checks and **not** conclusive.
+
 MoP introduces even spatial boolean logic capabilities to Transformers through a novel **Mixture of Products** mechanism. This approach enhances spatial reasoning by learning excitatory/inhibitory gating patterns that can realize boolean operations like AND, OR, and NOT over feature representations.
 
 The MoP mechanism is **architecture-agnostic** and has been successfully implemented across multiple modalities:
 - **Vision Transformers (ViT)** - Spatial reasoning for images ✅ *Implemented*
-- **GPT Models** - Sequential token interactions with Quartet Attention ✅ *Implemented*
-- **Audio Transformers (Whisper)** - Temporal-spectral patterns ✅ *Implemented*
+- **GPT Models** - Sequential token interactions with Quartet Attention 🧪 *Planned (concept; not on `main`)*
+- **Audio Transformers (Whisper)** - Temporal-spectral patterns 🧪 *Planned (concept; not on `main`)*
 - **Any Transformer Architecture** - General feature gating 🔮 *Extensible*
 
 ### Key Features
@@ -84,6 +87,11 @@ pip install -e .
 pytest
 python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
 ```
+
+### Tiny smoke run
+```bash
+python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
+```
 The smoke script auto-detects your device (`cuda`/`mps`/`cpu`) and writes a CSV to `results/cifar10/cifar10_acc.csv`.
 
 ## Implementations
@@ -108,6 +116,7 @@ gates, views, kernels = mop_model.get_gate_maps(x)
 ```
 
 ### 📝 Language Models (GPT-MoP)
+*Status: planned; not on `main` yet.*
 **Sequential Boolean Logic with Quartet Attention**
 - **Application**: Character-level language modeling
 - **MoP Components**: `ViewsLinear1D`, `Kernels1D`, `FuseExcInh1D`
@@ -126,6 +135,7 @@ logits, loss = mop_model(x, targets=y)
 ```
 
 ### 🎵 Audio Transformers (Whisper-MoP)
+*Status: planned; not on `main` yet.*
 **Temporal-Spectral Boolean Logic for Audio Processing**
 - **Application**: Audio transcription and understanding
 - **MoP Components**: `ViewsConv2D`, `Kernels2D`, `FuseExcInh2D`
@@ -193,21 +203,9 @@ Quick subset run to validate wiring and get a rough A/B signal:
 
 ## Results
 
-### Vision Transformer Results (ViT + MoP on CIFAR)
+### Sanity check (tiny smoke)
 
-| Dataset | Model | Test Accuracy | Δ vs Baseline | Parameters | Seeds |
-|---------|-------|---------------|---------------|------------|-------|
-| CIFAR-10 | ViT Baseline | 72.64% | - | 4.76M | 5 |
-| CIFAR-10 | ViT + MoP | 72.77% | **+0.13%** | 4.76M | 5 |
-| CIFAR-100 | ViT Baseline | 71.43% | - | 14.25M | 5 |  
-| CIFAR-100 | ViT + MoP | 72.19% | **+0.76%** | 14.25M | 5 |
-
-*Results averaged across multiple random seeds with statistical significance testing.*
-
-### Statistical Significance
-- **McNemar's Test**: Chi-square values indicate significant improvements
-- **Bootstrap Confidence Intervals**: 95% CI excludes zero for CIFAR-100
-- **Parameter-Matched**: Identical parameter counts ensure fair comparison
+- **CIFAR-10 (1 seed, ~400 steps, no heavy aug):** baseline **27.9%** → MoP **33.2%** (**+5.3 pp**). This is a *wiring sanity check*, **not** a converged result. Full runs with multiple seeds & statistics are planned.
 
 ## Core Components
 
