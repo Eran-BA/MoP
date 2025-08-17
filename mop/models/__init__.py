@@ -5,6 +5,7 @@ This module contains the core model implementations including:
 - ViT_MoP: Vision Transformer with Mixture of Products (first application)
 - ViT_Baseline: Standard Vision Transformer baseline
 - GPT_MoP: Language model with Mixture of Products for sequential data
+- Whisper_MoP: Audio transformer with Mixture of Products for temporal-spectral patterns
 - Core MoP components: ViewsLinear, Kernels3, FuseExcInh, etc.
 
 The MoP mechanism is architecture-agnostic and can be adapted to:
@@ -20,6 +21,10 @@ from .vit_baseline import ViT_Baseline
 # GPT/Language Model implementations
 from .gpt_mop import GPT_MoP, create_gpt_mop, create_gpt_baseline, create_gpt_quartet
 from .gpt_comparison import GPTComparisonFramework, ComparisonConfig, create_comparison_framework
+
+# Whisper/Audio Transformer implementations
+from .whisper_mop import WhisperMoP, create_whisper_mop, create_whisper_baseline, WhisperConfig
+from .whisper_comparison import WhisperComparisonFramework, WhisperComparisonConfig, create_whisper_comparison_framework
 
 # Core MoP components (architecture-agnostic)
 from .components import (
@@ -42,6 +47,17 @@ from .gpt_mop import (
     MoPBlock
 )
 
+# Whisper-specific MoP components
+from .whisper_mop import (
+    ViewsConv2D,
+    Kernels2D,
+    FuseExcInh2D,
+    MoP2D,
+    EncoderBlock,
+    DecoderBlock,
+    WhisperMoP
+)
+
 __all__ = [
     # Main models (ViT application of MoP)
     "ViT_MoP", 
@@ -53,10 +69,19 @@ __all__ = [
     "create_gpt_baseline", 
     "create_gpt_quartet",
     
-    # Comparison framework
+    # Main models (Whisper application of MoP)
+    "WhisperMoP",
+    "create_whisper_mop",
+    "create_whisper_baseline",
+    "WhisperConfig",
+    
+    # Comparison frameworks
     "GPTComparisonFramework",
     "ComparisonConfig",
     "create_comparison_framework",
+    "WhisperComparisonFramework",
+    "WhisperComparisonConfig",
+    "create_whisper_comparison_framework",
     
     # Core MoP components (architecture-agnostic)
     "ViewsLinear", 
@@ -68,6 +93,14 @@ __all__ = [
     "Kernels1D",
     "FuseExcInh1D", 
     "MoPBlock",
+    
+    # Whisper-specific MoP components
+    "ViewsConv2D",
+    "Kernels2D",
+    "FuseExcInh2D",
+    "MoP2D",
+    "EncoderBlock",
+    "DecoderBlock",
     
     # Transformer components (reusable)
     "ViTEncoder",
