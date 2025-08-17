@@ -11,20 +11,22 @@
 
 MoP introduces spatial boolean logic capabilities to Transformers through a novel **Mixture of Products** mechanism. This approach enhances spatial reasoning by learning excitatory/inhibitory gating patterns that can realize boolean operations like AND, OR, and NOT over feature representations.
 
-While initially demonstrated with Vision Transformers, the MoP mechanism is **architecture-agnostic** and can potentially be applied to:
+The MoP mechanism is **architecture-agnostic** and has been successfully implemented across multiple modalities:
 - **Vision Transformers (ViT)** - Spatial reasoning for images ✅ *Implemented*
-- **GPT Models** - Sequential token interactions 🔮 *Future work*
-- **Audio Transformers (Whisper)** - Temporal-spectral patterns 🔮 *Future work*
+- **GPT Models** - Sequential token interactions with Quartet Attention ✅ *Implemented*
+- **Audio Transformers (Whisper)** - Temporal-spectral patterns ✅ *Implemented*
 - **Any Transformer Architecture** - General feature gating 🔮 *Extensible*
 
 ### Key Features
 
 - 🧠 **Universal Boolean Logic**: Learn AND/OR/NOT operations across different modalities
-- 🔧 **Architecture-Agnostic**: Compatible with ViT, GPT, Whisper, and other Transformers
+- 🔧 **Architecture-Agnostic**: Successfully implemented for ViT, GPT, and Whisper
 - 📊 **Parameter-Matched Comparisons**: Fair evaluation with identical parameter counts
-- 🎯 **Multiple Domains**: Vision (CIFAR-10/100) with potential for NLP and Audio
+- 🎯 **Multiple Domains**: Vision (CIFAR-10/100), Language (GPT), Audio (Whisper)
 - 🔬 **Research-Ready**: Complete experimental framework and statistical testing
 - 📈 **Reproducible**: Deterministic training with multiple random seeds
+- 🎵 **Audio Processing**: 2D spectrogram analysis with temporal-spectral patterns
+- 📝 **Language Modeling**: Enhanced attention with Quartet mechanism
 
 ## Architecture
 
@@ -39,14 +41,62 @@ The MoP mechanism extends Transformers with:
 Input → Transformer Encoder → [Views + Kernels] → Exc/Inh Gates → Modulated Tokens → Output
 ```
 
+### Quartet Attention Architecture
+
+Our GPT-MoP implementation features the **Quartet Attention** mechanism, which extends standard scaled dot-product attention with dual-path processing:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              QUARTET ATTENTION                                    │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  Input X                                                                           │
+│     │                                                                              │
+│     ├─ Q_proj ──┐                                                                │
+│     ├─ K_proj ──┼─ QK^T * scale ── Z-norm QK ──┐                                │
+│     ├─ Q2_proj ─┤                                │                                │
+│     ├─ K2_proj ─┼─ Q2K2^T * scale ── Z-norm Q2K2 ──┐                            │
+│     ├─ V_proj ──┤                                │  │                            │
+│     └─ gate m ──┴────────────────────────────────┼──┼── Mixture ── Causal Mask   │
+│                                                   │  │              │              │
+│                                                   │  └──────────────┘              │
+│                                                   └────────────────────────────────┘
+│                                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐ │
+│  │                              GPT-2 BASELINE                                    │ │
+│  ├─────────────────────────────────────────────────────────────────────────────────┤ │
+│  │                                                                                 │ │
+│  │  Input X                                                                       │ │
+│  │     │                                                                          │ │
+│  │     ├─ Q_proj ──┐                                                            │ │
+│  │     ├─ K_proj ──┼─ QK^T * scale ── Z-score normalize ── Causal Mask          │ │
+│  │     └─ V_proj ──┘                                    │                        │ │
+│  │                                                       └─ Softmax ── Attention │
+│  │                                                                      Weights    │
+│  └─────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                     │
+│  Both architectures continue with:                                                  │
+│  Attention Weights ── Matmul with V ── O_proj                                      │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Innovations:**
+- **Dual-Path Processing**: Parallel QK and Q2K2 attention score calculations
+- **Learnable Mixing**: Gate-controlled combination of normalized attention scores
+- **Enhanced Expressiveness**: Captures more complex token interaction patterns
+- **Parameter Efficiency**: Maintains similar parameter count to baseline
+
 **Current Implementation:**
 - **Vision**: Spatial attention over image patches (8×8 grid for CIFAR)
+- **Language**: Sequential attention with Quartet mechanism for token interactions
+- **Audio**: Temporal-spectral attention with 2D convolutions
 - **Boolean Operations**: Learnable AND/OR/NOT combinations via excitatory/inhibitory gating
 
 **Future Applications:**
-- **Language**: Token interaction patterns in sequences  
-- **Audio**: Spectro-temporal feature combinations
 - **Multimodal**: Cross-modal attention mechanisms
+- **Real-time**: Streaming attention for live data processing
+- **Specialized**: Domain-specific attention patterns
 
 ## Installation
 
@@ -67,6 +117,63 @@ pip install -e .
 ### Verify Installation
 ```bash
 python test_models.py
+```
+
+## Implementations
+
+### 🖼️ Vision Transformers (ViT-MoP)
+**Spatial Boolean Logic for Image Processing**
+- **Application**: CIFAR-10/100 image classification
+- **MoP Components**: `ViewsLinear`, `Kernels3`, `FuseExcInh`
+- **Pattern Detection**: 8×8 spatial grid analysis
+- **Boolean Operations**: AND/OR/NOT over image patches
+
+```python
+from mop.models import ViT_MoP, ViT_Baseline
+
+# Create parameter-matched models
+baseline = ViT_Baseline(dim=256, depth=6, heads=4, n_classes=10)
+mop_model = ViT_MoP(dim=256, depth=6, heads=4, n_classes=10, 
+                    n_views=5, n_kernels=3)
+
+# Extract spatial attention patterns
+gates, views, kernels = mop_model.get_gate_maps(x)
+```
+
+### 📝 Language Models (GPT-MoP)
+**Sequential Boolean Logic with Quartet Attention**
+- **Application**: Character-level language modeling
+- **MoP Components**: `ViewsLinear1D`, `Kernels1D`, `FuseExcInh1D`
+- **Pattern Detection**: Temporal token interactions
+- **Enhanced Attention**: Dual-path QK processing with learnable mixing
+
+```python
+from mop.models import GPT_MoP, create_gpt_mop
+
+# Create GPT-MoP with Quartet attention
+config = TransformerConfig(n_layer=6, n_head=8, n_embd=256)
+mop_model = create_gpt_mop(vocab_size=1000, config=config, n_views=5, n_kernels=3)
+
+# Forward pass with MoP-enhanced attention
+logits, loss = mop_model(x, targets=y)
+```
+
+### 🎵 Audio Transformers (Whisper-MoP)
+**Temporal-Spectral Boolean Logic for Audio Processing**
+- **Application**: Audio transcription and understanding
+- **MoP Components**: `ViewsConv2D`, `Kernels2D`, `FuseExcInh2D`
+- **Pattern Detection**: 2D spectrogram analysis (time × frequency)
+- **Architecture**: Encoder-decoder with MoP gating in encoder
+
+```python
+from mop.models import WhisperMoP, create_whisper_mop
+
+# Create Whisper-MoP for audio processing
+config = WhisperConfig(n_layer_enc=6, n_layer_dec=6, n_embd=512, n_mels=80)
+mop_model = create_whisper_mop(config)
+
+# Process mel spectrograms with MoP gating
+logits, loss, gates = mop_model(mel, dec_input_ids, targets=targets)
 ```
 
 ## Quick Start
