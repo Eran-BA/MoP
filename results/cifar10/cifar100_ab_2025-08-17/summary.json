@@ -1,0 +1,13 @@
+{
+  "seed": 0,
+  "params_base": 14250240,
+  "params_mop": 14251892,
+  "test_acc_A": 0.24300000071525574,
+  "test_acc_B": 0.30970001220703125,
+  "mcnemar_n01": 480,
+  "mcnemar_n10": 1147,
+  "mcnemar_chi2": 272.62200368760136,
+  "delta_acc_mean": 0.06668186000000001,
+  "delta_acc_lo": 0.05880000000000002,
+  "delta_acc_hi": 0.0748
+}
