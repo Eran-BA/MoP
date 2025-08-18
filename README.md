@@ -12,6 +12,8 @@
 *Requires Python 3.9+*
 
 ```bash
+git clone https://github.com/Eran-BA/MoP.git
+cd MoP
 pip install -r requirements.txt
 # optional: quick self-test
 pytest -q
