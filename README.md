@@ -469,7 +469,7 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 
 ### What's Next:
 - [ ] Filter-Bank Mixture-of-Products:
-- [ ] Generalize to a lens bank via causal depthwise convs over Q/K(1…M); run CNN filters in parallel over the bank; support gate-free log-space multiplication.
+- [ ] Generalize to a lens bank via, optionally causal, depthwise convs over Q/K(1…M); run CNN filters in parallel over the bank; support gate-free log-space multiplication.
 - [ ] Multi-scale kernels with varying dilations
 - [ ] Parallel Run of CNN filters on top of the bank of lenses (Product 1 , Product 2, .... Product M)
 - [ ] Gate-free log-space multiplication (gate is optional)
