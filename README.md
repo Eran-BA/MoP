@@ -21,9 +21,6 @@ pytest -q
 ##### single-seed, short schedule to verify wiring
 python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
 
-##### baseline (param-matched)
-python experiments/cifar10_multi_seed.py --dataset cifar100 --variant baseline --steps 2000 --out runs/smoke_base
-
 ##### expected (sanity): MoP ≥ baseline by ~1–3pp on short runs; see full results below.
 
 ---
