@@ -55,6 +55,15 @@ Our GPT-MoP implementation features the **Quartet Attention** mechanism, which e
 
 #### Token example — object tokens
 
+<p align="center">
+  <img src="docs/assets/mop_and_red_round_table.png"
+       alt="P1(red), P2(round), Product — conjunction makes red_ball pop"
+       width="520">
+  <br/>
+  <sub>Conjunction via product: normalize(A₁ ⊙ A₂) ≡ softmax(S₁ + S₂).</sub>
+</p>
+
+
 A tiny, synthetic sequence with three **key tokens**: **red_book**, **gray_bowl**, **red_ball**.  
 We form two attention *views* for the **same query row** \(i\):
 
