@@ -11,20 +11,20 @@
 
 ## Install
 
-# Python 3.9+ recommended
+### Python 3.9+ recommended
 pip install -r requirements.txt
 
-# (Optional) verify
+### (Optional) verify
 pytest -q
 
 ## Quickstart: ViT-MoP on CIFAR-100 (smoke run)
-# single-seed, short schedule to verify wiring
+### single-seed, short schedule to verify wiring
 python -m experiments.vit.train --dataset cifar100 --variant mop_v3k1 --steps 2000 --out runs/smoke_v3k1
 
-# baseline (param-matched)
+### baseline (param-matched)
 python -m experiments.vit.train --dataset cifar100 --variant baseline --steps 2000 --out runs/smoke_base
 
-# expected (sanity): MoP ≥ baseline by ~1–3pp on short runs; see full results below.
+### expected (sanity): MoP ≥ baseline by ~1–3pp on short runs; see full results below.
 
 
 
