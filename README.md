@@ -26,6 +26,7 @@ python -m experiments.vit.train --dataset cifar100 --variant baseline --steps 20
 
 ### expected (sanity): MoP ≥ baseline by ~1–3pp on short runs; see full results below.
 
+---
 
 
 > **Project status (2025-08-17):** Research prototype. The `main` branch implements **ViT-MoP**. Although **GPT-MoP** and **Whisper-MoP** are *planned* (concept only; not on `main`). Reported metrics here are tiny-smoke sanity checks and **not** conclusive.
@@ -517,10 +518,11 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 
 ---
 
-<div align="center">
-
 #### Why not “just more heads”?
 Multi-head averages outputs of separate softmaxes. MoP mixtures **change score geometry** (e.g., `S1+S2`, `S1−βS2`, cross terms, two-hop), enabling **conjunction, exclusion, and relational chaining** in one layer.
+
+
+<div align="center">
 
 
 **🧠 Bringing Boolean Logic to the Age of Transformers 🚀**
