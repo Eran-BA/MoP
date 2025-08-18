@@ -19,10 +19,10 @@ pytest -q
 
 #### Quickstart: ViT-MoP on CIFAR-100 (smoke run)
 ##### single-seed, short schedule to verify wiring
-python -m experiments.vit.train --dataset cifar100 --variant mop_v3k1 --steps 2000 --out runs/smoke_v3k1
+python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
 
 ##### baseline (param-matched)
-python -m experiments.vit.train --dataset cifar100 --variant baseline --steps 2000 --out runs/smoke_base
+python experiments/cifar10_multi_seed.py --dataset cifar100 --variant baseline --steps 2000 --out runs/smoke_base
 
 ##### expected (sanity): MoP ≥ baseline by ~1–3pp on short runs; see full results below.
 
