@@ -153,6 +153,12 @@ def dual_path_mix(S1, S2, mask=None, beta_not=0.5, gates=None):
         Smix = Smix.masked_fill((mask==0), float("-inf"))
     return F.softmax(Smix, dim=-1)
 ```
+#### CNN-Gated Variant (edge-wise selection)
+Treat each map as a **channel** over the (i,j) grid and predict per-edge gates:
+
+- **Inputs (per head):** `[S1, S2, S1ᵀ, S2ᵀ, log(C→+ε), log(C←+ε)]`
+- **Head:** depthwise/pointwise `1×1` + `3×3`; initialize gate logits ≈ **−5** so you begin near the base path.
+- **Outputs:** `g_and, g_or, g_not, g_chain ∈ [0,1]^{T×T}`; mix as in the code, re-mask, then softmax.
 
 
 **Key Innovations:**
