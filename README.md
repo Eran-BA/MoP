@@ -51,6 +51,110 @@ Our GPT-MoP implementation features the **Quartet Attention** mechanism, which e
 <img width="741" height="671" alt="Screenshot 2025-08-16 at 17 30 39" src="https://github.com/user-attachments/assets/c7c6b736-353e-4aea-bec4-e5d3b36d160d" />
 
 
+### Mixture Cookbook
+
+#### Token example — object tokens
+
+A tiny, synthetic sequence with three **key tokens**: **red_book**, **gray_bowl**, **red_ball**.  
+We form two attention *views* for the **same query row** \(i\):
+
+- **A₁ (color/red)** — prefers red things.
+- **A₂ (shape/round)** — prefers round things.
+
+**Table 1 — A₁ and A₂ for the same row \(i\)**
+| query \(i\) \ keys \(j\) | red_book | gray_bowl | red_ball |
+|---|---:|---:|---:|
+| A₁ (red)   | 0.50 | 0.10 | 0.40 |
+| A₂ (round) | 0.10 | 0.50 | 0.40 |
+
+**Table 2 — AND (element-wise product) and row-normalize**
+| query \(i\) \ keys \(j\) | red_book | gray_bowl | red_ball |
+|---|---:|---:|---:|
+| AND raw = A₁·A₂ | 0.05 | 0.05 | 0.16 |
+| AND normalized  | **0.185** | **0.185** | **0.630** |
+
+Result: **red_ball** (red ∧ round) pops; *only-red* (**red_book**) and *only-round* (**gray_bowl**) are down-weighted.
+
+> Identity: in score-space, `AND` is just `softmax(S1 + S2)`. In probability space, multiply then renormalize.
+
+This section makes MoP’s **mixtures** concrete. It lists the main operators you can compose over **dual-path** (or multi-path) attention maps and gives a tiny, drop-in API.
+
+#### Notation & Shapes
+- Per head, pre-softmax scores: `S ∈ R[T×T]` (same mask/causality).
+- Two views (extendable to M): `S1 = Q1 K1ᵀ`, `S2 = Q2 K2ᵀ`.  
+  Post-softmax: `A1 = softmax(S1)`, `A2 = softmax(S2)` (row-stochastic).
+- We always **re-mask** before softmax if needed.
+
+#### Core Operators
+All operators are per head and preserve causal masking when inputs do.
+
+- **AND (conjunction / precision)**  
+  Probability-space: `normalize(A1 ⊙ A2)`  
+  Score-space identity: `softmax(S1 + S2)`
+
+- **OR (recall)**  
+  Probability-space: `normalize(exp(S1) + exp(S2))`  
+  Score-space (soft-OR): `softmax(LSE(S1, S2))` where `LSE(a,b)=log(exp a + exp b)`
+
+- **NOT / exclusion (suppress distractors)**  
+  `softmax(S1 − β·S2)` with learnable `β ≥ 0` (defaults small).
+
+- **XOR / disagreement (optional)**  
+  `softmax(|S1 − S2|)` or `A1 + A2 − 2·A1⊙A2` (then renormalize).
+
+- **Two-hop composition (relational chaining via k)**  
+  `C→ = A1 @ A2`, `C← = A2 @ A1` (row-stochastic). This routes evidence `i→k→j` instead of intersecting at the same `(i,j)`.
+
+- **Per-key prior (edge sharpening with a chosen k\*)**  
+  For a specific anchor row `k*` from view-2:  
+  `Asharp(i,j) ∝ A1(i,j) · A2(k*, j)` (then normalize the row `i`).
+
+- **Cross-view binding (query of one view vs key of the other)**  
+  Extra score paths: `S12 = Q1 K2ᵀ`, `S21 = Q2 K1ᵀ`.  
+  General 2×2 mixer: `[Q1,Q2] · M · [K1;K2]ᵀ` with a tiny learnable `M`.
+
+- **Transpose channels (key-centric cues)**  
+  Include `S1ᵀ, S2ᵀ` as channels so the mixer can use **column** context at `(i,j)`.
+
+> Tip: In probability-space, `AND` = multiply then renormalize. In score-space, it’s **just add the logits** (`S1+S2`).
+
+#### Tiny Drop-In Mixer (PyTorch)
+```python
+import torch
+from torch.nn import functional as F
+
+def lse(a, b):
+    return torch.logsumexp(torch.stack([a, b], dim=0), dim=0)
+
+def dual_path_mix(S1, S2, mask=None, beta_not=0.5, gates=None):
+    """
+    S1, S2: [B, H, T, T] pre-softmax scores (same mask/temperature)
+    mask:   [B, 1, 1, T] or [B, 1, T, T] with 0 for disallowed keys
+    gates:  optional dict of scalars in [0,1] to weight ops (defaults provided)
+    """
+    if gates is None:
+        gates = dict(and_=1.0, or_=0.0, not_=0.0, chain=0.0, base=1.0)
+    # Base path
+    Smix = gates["base"] * (S1 + 0.0)
+    # AND (sum of logits)
+    Smix = Smix + gates["and_"] * ((S1 + S2) - S1)
+    # OR (soft-OR)
+    Smix = Smix + gates["or_"] * (lse(S1, S2) - S1)
+    # NOT (exclusion)
+    Smix = Smix - gates["not_"] * (beta_not * S2)
+    # Two-hop (i→k→j) via A1@A2; add as log-prob
+    A1 = F.softmax(S1.masked_fill((mask==0) if mask is not None else False, float("-inf")), dim=-1)
+    A2 = F.softmax(S2.masked_fill((mask==0) if mask is not None else False, float("-inf")), dim=-1)
+    C_right = torch.matmul(A1, A2)  # [B,H,T,T]
+    eps = 1e-6
+    Smix = Smix + gates["chain"] * torch.log(C_right + eps)
+    # Re-mask and softmax
+    if mask is not None:
+        Smix = Smix.masked_fill((mask==0), float("-inf"))
+    return F.softmax(Smix, dim=-1)
+
+
+
 **Key Innovations:**
 - **Dual-Path Processing**: Parallel QK and Q2K2 attention score calculations
 - **Learnable Mixing**: Gate-controlled combination of normalized attention scores
