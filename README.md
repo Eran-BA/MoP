@@ -55,7 +55,7 @@ Our GPT-MoP implementation features the **Quartet Attention** mechanism, which e
 
 #### Token example — object tokens
 
-<p align="center">
+<p align="left">
   <img src="docs/assets/mop_and_red_round_table.png"
        alt="P1(red), P2(round), Product — conjunction makes red_ball pop"
        width="520">
