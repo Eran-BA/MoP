@@ -492,6 +492,10 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 
 <div align="center">
 
+#### Why not “just more heads”?
+Multi-head averages outputs of separate softmaxes. MoP mixtures **change score geometry** (e.g., `S1+S2`, `S1−βS2`, cross terms, two-hop), enabling **conjunction, exclusion, and relational chaining** in one layer.
+
+
 **🧠 Bringing Boolean Logic to the Age of Transformers 🚀**
 
 *MoP: Where spatial reasoning meets neural architecture*
