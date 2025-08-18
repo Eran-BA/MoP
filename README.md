@@ -8,14 +8,14 @@
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5186--5594-green.svg)](https://orcid.org/0009-0005-5186-5594)
 
 ## Overview
+## Install
+*Requires Python 3.9+*
 
-#### Install
-
-##### Python 3.9+ recommended
+```bash
 pip install -r requirements.txt
-
-##### (Optional) verify
+# optional: quick self-test
 pytest -q
+```
 
 #### Quickstart: ViT-MoP on CIFAR-100 (smoke run)
 ##### single-seed, short schedule to verify wiring
