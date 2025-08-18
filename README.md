@@ -152,7 +152,7 @@ def dual_path_mix(S1, S2, mask=None, beta_not=0.5, gates=None):
     if mask is not None:
         Smix = Smix.masked_fill((mask==0), float("-inf"))
     return F.softmax(Smix, dim=-1)
-
+```
 
 
 **Key Innovations:**
