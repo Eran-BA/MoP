@@ -16,10 +16,12 @@ pip install -r requirements.txt
 # optional: quick self-test
 pytest -q
 ```
-
 #### Quickstart: ViT-MoP on CIFAR-100 (smoke run)
 ##### single-seed, short schedule to verify wiring
+```bash
 python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
+```
+
 
 ##### expected (sanity): MoP ≥ baseline by ~1–3pp on short runs; see full results below.
 
