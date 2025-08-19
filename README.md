@@ -383,6 +383,13 @@ from mop.models import ViTEncoder, PatchEmbed, MSA, MLP, Block
 python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
 ```
 
+### Param-matched A/B/C at ~5M params (Colab)
+```bash
+!python experiments/cifar10_ab3_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000 \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
+  --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
+```
+
 ### CIFAR-100 with Augmentation (Planned)
 ```bash
 python experiments/cifar100_augmented.py --seeds 0 1 2 --output results/cifar100
