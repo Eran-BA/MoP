@@ -6,39 +6,39 @@ This directory contains runnable experiment scripts for CIFAR-10/100 using the m
 
 - Multi-seed CIFAR-10 baseline vs MoP:
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar10_multi_seed.py --steps 1000 --seeds 0 1 2
+python experiments/cifar10_multi_seed.py --steps 1000 --seeds 0 1 2
 ```
 
 - Multi-seed CIFAR-100 baseline vs MoP:
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar100_multi_seed.py --steps 1500 --seeds 0 1 2
+python experiments/cifar100_multi_seed.py --steps 1500 --seeds 0 1 2
 ```
 
 - Param-matched A/B (Baseline vs MoP) at ~50M params:
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar10_ab_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000
+python experiments/cifar10_ab_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000
 ```
 
 - Param-matched A/B/C (Baseline vs MoP vs Cross-View Mixer) at ~50M params:
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar10_ab3_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000 \
+python experiments/cifar10_ab3_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000 \
   --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
   --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
 ```
 
 - MoP hyperparameter sweep over views/kernels (CIFAR-10):
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar10_mop_sweep.py --steps 1000 --seeds 0 1 --views 3 5 7 --kernels 2 3 4
+python experiments/cifar10_mop_sweep.py --steps 1000 --seeds 0 1 --views 3 5 7 --kernels 2 3 4
 ```
 
 - Dual-path gating with two-hop composition (CIFAR-10):
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar10_twohop_gates.py --steps 1000 --seeds 0 1 --gate_chain 1.0
+python experiments/cifar10_twohop_gates.py --steps 1000 --seeds 0 1 --gate_chain 1.0
 ```
 
 - Cross-view mixer with per-key prior sharpening and transpose cues (CIFAR-10):
 ```bash
-python /Users/rnbnrzy/mop/experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
+python experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
   --enable_prior --prior_weight 0.5 --use_transpose_cues --t1 0.2 --t2 0.2
 ```
 
