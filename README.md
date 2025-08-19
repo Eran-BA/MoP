@@ -18,6 +18,12 @@ pip install -r requirements.txt
 # optional: quick self-test
 pytest -q
 ```
+#### Colab: Param-matched A/B/C at ~5M params
+```bash
+!python experiments/cifar10_ab3_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000 \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
+  --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
+```
 #### Quickstart: ViT-MoP on CIFAR-100 (smoke run)
 ##### single-seed, short schedule to verify wiring
 ```bash
