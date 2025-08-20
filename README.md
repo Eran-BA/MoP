@@ -396,6 +396,21 @@ python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --s
   --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
 ```
 
+### Two-hop (value-aware) quick starts
+```bash
+# CIFAR-10 two-hop, param-matched ~5M
+!python experiments/cifar10_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000
+
+# CIFAR-100 two-hop, param-matched ~5M
+!python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500
+
+# Optional: direct two-hop gates (CIFAR-10)
+!python experiments/cifar10_twohop_gates.py --steps 1000 --seeds 0 1 --gate_chain 1.0
+
+# Optional: direct two-hop gates (CIFAR-100)
+!python experiments/cifar100_twohop_gates.py --steps 1500 --seeds 0 1 --gate_chain 1.0
+```
+
 ### CIFAR-100 with Augmentation (Planned)
 ```bash
 python experiments/cifar100_augmented.py --seeds 0 1 2 --output results/cifar100

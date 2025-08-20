@@ -42,6 +42,21 @@ python experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
   --enable_prior --prior_weight 0.5 --use_transpose_cues --t1 0.2 --t2 0.2
 ```
 
+- Dual-path gating with two-hop composition (CIFAR-100):
+```bash
+python experiments/cifar100_twohop_gates.py --steps 1500 --seeds 0 1 --gate_chain 1.0
+```
+
+- Param-matched Two-hop (CIFAR-10) at ~5M params:
+```bash
+python experiments/cifar10_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000
+```
+
+- Param-matched Two-hop (CIFAR-100) at ~5M params:
+```bash
+python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500
+```
+
 ## Scripts
 
 ### `cifar10_multi_seed.py`
@@ -68,9 +83,20 @@ python experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
   - MoP: `--mop_views`, `--mop_kernels`
   - Cross-View: `--xview_transpose`, `--xview_t1`, `--xview_t2`, `--xview_enable_prior`, `--xview_prior_weight`, `--xview_anchor_mode`, `--xview_k_star`
 
+### `cifar100_ab3_param_budgets.py`
+- A/B/C: Param-matched Baseline vs MoP vs Cross-View Mixer on CIFAR-100.
+- Same options as the CIFAR-10 script, with CIFAR-100 defaults (e.g., more steps).
+- Key args (subset):
+  - Matching: `--targets`
+  - MoP: `--mop_views`, `--mop_kernels`
+  - Cross-View: `--xview_transpose`, `--xview_t1`, `--xview_t2`, `--xview_enable_prior`, `--xview_prior_weight`, `--xview_anchor_mode`, `--xview_k_star`
+
 ### `cifar10_twohop_gates.py`
 - Implements dual-path attention with logical gates (AND/OR/NOT) and a two-hop composition term via `A1 @ A2`.
 - Tunable gate weights: `--gate_base`, `--gate_and`, `--gate_or`, `--gate_not`, `--gate_chain`; `--beta_not`.
+
+### `cifar100_twohop_gates.py`
+- CIFAR-100 version of two-hop gating with the same options and value-aware chaining.
 
 ### `cifar10_crossview_mixer.py`
 - Cross-view mixer attention:
@@ -78,6 +104,17 @@ python experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
   - Learnable 2×2 mixing of these paths; optional transpose cues `S1ᵀ`, `S2ᵀ`.
   - Per-key prior sharpening: `A_sharp(i,j) ∝ A1(i,j) · A2(k*, j)` with row normalization.
 - Key args: `--use_transpose_cues`, `--t1`, `--t2`, `--enable_prior`, `--prior_weight`, `--anchor_mode`, `--k_star`.
+
+### `cifar100_crossview_mixer.py`
+- CIFAR-100 version of Cross-View Mixer with identical options.
+
+### `cifar10_twohop_param_budgets.py`
+- Param-match the Two-hop model to specified budgets (e.g., ~5M, ~50M) on CIFAR-10.
+- Key args: `--targets`, two-hop gates `--gate_*`, `--beta_not`.
+
+### `cifar100_twohop_param_budgets.py`
+- Param-match the Two-hop model to specified budgets (e.g., ~5M, ~50M) on CIFAR-100.
+- Key args: `--targets`, two-hop gates `--gate_*`, `--beta_not`.
 
 ## Results
 
