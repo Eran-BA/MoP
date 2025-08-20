@@ -182,6 +182,48 @@ def find_config_for_target(
     return best_cfg, int(best_params)
 
 
+def find_config_for_target_under_budget(
+    ctor,
+    n_classes: int,
+    target_params: int,
+    max_params: int,
+    dims: Iterable[int] = (128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768),
+    depths: Iterable[int] = (4, 6, 8, 10, 12),
+    heads_list: Iterable[int] = (4, 6, 8),
+    extra_kwargs: Optional[Dict] = None,
+) -> Tuple[Dict[str, int], int]:
+    best_diff = None
+    best_cfg = None
+    best_params = None
+    best_under = None
+    best_under_params = None
+    for heads in heads_list:
+        for dim in dims:
+            if dim % heads != 0:
+                continue
+            for depth in depths:
+                try:
+                    p = estimate_params(
+                        ctor, n_classes, dim, depth, heads, extra_kwargs
+                    )
+                except Exception:
+                    continue
+                if p <= max_params:
+                    diff = abs(int(target_params) - p)
+                    if best_diff is None or diff < best_diff:
+                        best_diff = diff
+                        best_cfg = {"dim": dim, "depth": depth, "heads": heads}
+                        best_params = p
+                    if best_under_params is None or p > best_under_params:
+                        best_under_params = p
+                        best_under = {"dim": dim, "depth": depth, "heads": heads}
+    if best_cfg is not None:
+        return best_cfg, int(best_params)
+    if best_under is not None:
+        return best_under, int(best_under_params)
+    raise RuntimeError("Could not find a configuration under the specified budget.")
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="A/B/C test Baseline vs MoP vs CrossView at fixed parameter budgets on CIFAR-10"
@@ -232,10 +274,11 @@ def main():
         base_cfg, base_p = find_config_for_target(
             ViT_Baseline, n_classes=10, target_params=int(target)
         )
-        mop_cfg, mop_p = find_config_for_target(
+        mop_cfg, mop_p = find_config_for_target_under_budget(
             ViT_MoP,
             n_classes=10,
             target_params=int(target),
+            max_params=base_p,
             extra_kwargs={"n_views": args.mop_views, "n_kernels": args.mop_kernels},
         )
         xview_extra = dict(
@@ -256,7 +299,7 @@ def main():
 
         print(f"Baseline cfg: {base_cfg} | params={base_p:,}")
         print(
-            f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,}"
+            f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base)"
         )
         print(f"XView cfg   : {xview_cfg} + {xview_extra} | params={xview_p:,}")
 
