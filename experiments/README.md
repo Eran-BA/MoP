@@ -57,6 +57,16 @@ python experiments/cifar10_twohop_param_budgets.py --targets 5000000 --seeds 0 1
 python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500
 ```
 
+- Multi-hop gating (value-aware) (CIFAR-10):
+```bash
+python experiments/cifar10_multihop_gates.py --steps 1000 --seeds 0 1 --hops 3 --gate_chain 1.0
+```
+
+- Multi-hop gating (value-aware) (CIFAR-100):
+```bash
+python experiments/cifar100_multihop_gates.py --steps 1500 --seeds 0 1 --hops 3 --gate_chain 1.0
+```
+
 ## Scripts
 
 ### `cifar10_multi_seed.py`
@@ -98,6 +108,13 @@ python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 
 ### `cifar100_twohop_gates.py`
 - CIFAR-100 version of two-hop gating with the same options and value-aware chaining.
 
+### `cifar10_multihop_gates.py`
+- Multi-hop generalization of two-hop with value-aware transport. Control hop count via `--hops` (≥2).
+- Key args: `--hops`, gate weights `--gate_*`, `--beta_not`.
+
+### `cifar100_multihop_gates.py`
+- CIFAR-100 version of multi-hop with identical options.
+
 ### `cifar10_crossview_mixer.py`
 - Cross-view mixer attention:
   - Standard scores `S1=Q1K1ᵀ`, `S2=Q2K2ᵀ`, cross-view `S12=Q1K2ᵀ`, `S21=Q2K1ᵀ`.
@@ -115,6 +132,15 @@ python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 
 ### `cifar100_twohop_param_budgets.py`
 - Param-match the Two-hop model to specified budgets (e.g., ~5M, ~50M) on CIFAR-100.
 - Key args: `--targets`, two-hop gates `--gate_*`, `--beta_not`.
+
+### `cifar100_ab4_param_budgets.py`
+- A/B/C/D: Param-matched Baseline vs MoP vs Cross-View Mixer vs Multi-Hop on CIFAR-100.
+- Ensures MoP ≤ Baseline parameters (prefer ≤1% gap) and uses the same-or-smaller `(dim, depth, heads)` for MoP.
+- Key args (subset):
+  - Matching: `--targets`
+  - MoP: `--mop_views`, `--mop_kernels`
+  - Cross-View: `--xview_transpose`, `--xview_t1`, `--xview_t2`, `--xview_enable_prior`, `--xview_prior_weight`, `--xview_anchor_mode`, `--xview_k_star`
+  - Multi-Hop: `--mh_hops`, `--mh_beta_not`, multi-hop gates `--mh_gate_*`
 
 ## Results
 
