@@ -328,6 +328,16 @@ def main():
     ap.add_argument("--steps", type=int, default=1500)
     ap.add_argument("--batch", type=int, default=256)
     ap.add_argument("--lr", type=float, default=3e-3)
+    ap.add_argument(
+        "--lr_large", type=float, default=1e-3, help="LR when target >= large threshold"
+    )
+    ap.add_argument("--large_threshold", type=int, default=50_000_000)
+    ap.add_argument(
+        "--warmup_frac",
+        type=float,
+        default=0.1,
+        help="fraction of steps for linear warmup",
+    )
     ap.add_argument("--weight_decay", type=float, default=5e-2)
     ap.add_argument("--eval_every", type=int, default=250)
     ap.add_argument("--tiny", action="store_true")
@@ -367,13 +377,29 @@ def main():
     ViT_Baseline, ViT_MoP, ViTCrossView, ViTMultiHop = try_import_models()
     train_loader, val_loader = get_loaders(args.batch, tiny=args.tiny, workers=2)
 
-    def make_opt(m: nn.Module):
-        opt = optim.AdamW(m.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        sch = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(args.steps, 1))
+    def make_opt(m: nn.Module, lr_value: float):
+        opt = optim.AdamW(m.parameters(), lr=lr_value, weight_decay=args.weight_decay)
+        warmup_steps = int(max(args.steps, 1) * max(args.warmup_frac, 0.0))
+        if warmup_steps > 0:
+            sched1 = optim.lr_scheduler.LinearLR(
+                opt, start_factor=1e-3, total_iters=warmup_steps
+            )
+            sched2 = optim.lr_scheduler.CosineAnnealingLR(
+                opt, T_max=max(args.steps - warmup_steps, 1)
+            )
+            sch = optim.lr_scheduler.SequentialLR(
+                opt, schedulers=[sched1, sched2], milestones=[warmup_steps]
+            )
+        else:
+            sch = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(args.steps, 1))
         return opt, sch
 
     for target in args.targets:
         print(f"\n🎯 Target parameters: {int(target):,}")
+        lr_current = (
+            args.lr if int(target) < int(args.large_threshold) else args.lr_large
+        )
+        print(f"Using learning rate: {lr_current} (warmup_frac={args.warmup_frac})")
 
         base_cfg, base_p = find_config_for_target(
             ViT_Baseline, n_classes=100, target_params=int(target)
@@ -473,10 +499,10 @@ def main():
                 f"Params | base: {count_parameters(base):,} | mop: {count_parameters(mop):,} | xview: {count_parameters(xv):,} | multihop: {count_parameters(mh):,}"
             )
 
-            opt_b, sch_b = make_opt(base)
-            opt_m, sch_m = make_opt(mop)
-            opt_x, sch_x = make_opt(xv)
-            opt_h, sch_h = make_opt(mh)
+            opt_b, sch_b = make_opt(base, lr_current)
+            opt_m, sch_m = make_opt(mop, lr_current)
+            opt_x, sch_x = make_opt(xv, lr_current)
+            opt_h, sch_h = make_opt(mh, lr_current)
 
             steps = 0
             base.train()
