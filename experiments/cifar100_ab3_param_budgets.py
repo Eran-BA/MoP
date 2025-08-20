@@ -427,10 +427,13 @@ def main():
             anchor_mode=args.xview_anchor_mode,
             fixed_k_star=args.xview_k_star,
         )
-        xview_cfg, xview_p = find_config_for_target(
+        xview_cfg, xview_p = find_mop_config_match_baseline(
             ViTCrossView,
             n_classes=100,
             target_params=int(target),
+            baseline_cfg=base_cfg,
+            baseline_params=base_p,
+            max_ratio_diff=0.01,
             extra_kwargs=xview_extra,
         )
 

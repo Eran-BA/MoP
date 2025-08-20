@@ -224,6 +224,101 @@ def find_config_for_target_under_budget(
     raise RuntimeError("Could not find a configuration under the specified budget.")
 
 
+def find_model_config_match_baseline(
+    ctor,
+    n_classes: int,
+    target_params: int,
+    baseline_cfg: Dict[str, int],
+    baseline_params: int,
+    max_ratio_diff: float = 0.01,
+    dims_choices: Iterable[int] = (
+        128,
+        160,
+        192,
+        224,
+        256,
+        320,
+        384,
+        448,
+        512,
+        640,
+        768,
+    ),
+    depths_choices: Iterable[int] = (4, 6, 8, 10, 12),
+    heads_choices: Iterable[int] = (4, 6, 8),
+    extra_kwargs: Optional[Dict] = None,
+) -> Tuple[Dict[str, int], int, bool]:
+    """Generic matcher: enforce (dim, depth, heads) <= baseline and params <= baseline.
+
+    Returns (cfg, params, within_ratio_flag).
+    """
+    base_dim = baseline_cfg["dim"]
+    base_depth = baseline_cfg["depth"]
+    base_heads = baseline_cfg["heads"]
+
+    dims = [d for d in dims_choices if d <= base_dim]
+    if base_dim not in dims:
+        dims.append(base_dim)
+    depths = [d for d in depths_choices if d <= base_depth]
+    if base_depth not in depths:
+        depths.append(base_depth)
+    heads_list = [h for h in heads_choices if h <= base_heads]
+    if base_heads not in heads_list:
+        heads_list.append(base_heads)
+
+    # Try exact baseline cfg first
+    try:
+        p_same = estimate_params(
+            ctor, n_classes, base_dim, base_depth, base_heads, extra_kwargs
+        )
+        if p_same <= baseline_params:
+            rel_gap = abs(baseline_params - p_same) / max(1, baseline_params)
+            return (
+                {"dim": base_dim, "depth": base_depth, "heads": base_heads},
+                int(p_same),
+                (rel_gap <= max_ratio_diff),
+            )
+    except Exception:
+        pass
+
+    best_within = None
+    best_within_params = None
+    best_within_target_diff = None
+    best_under = None
+    best_under_params = None
+    best_under_target_diff = None
+    for heads in sorted(set(heads_list)):
+        for dim in sorted(set(dims)):
+            if dim % heads != 0:
+                continue
+            for depth in sorted(set(depths)):
+                try:
+                    p = estimate_params(
+                        ctor, n_classes, dim, depth, heads, extra_kwargs
+                    )
+                except Exception:
+                    continue
+                if p > baseline_params:
+                    continue
+                rel_gap = abs(baseline_params - p) / max(1, baseline_params)
+                target_diff = abs(int(target_params) - p)
+                if rel_gap <= max_ratio_diff:
+                    if best_within is None or target_diff < best_within_target_diff:
+                        best_within = {"dim": dim, "depth": depth, "heads": heads}
+                        best_within_params = p
+                        best_within_target_diff = target_diff
+                if best_under is None or target_diff < best_under_target_diff:
+                    best_under = {"dim": dim, "depth": depth, "heads": heads}
+                    best_under_params = p
+                    best_under_target_diff = target_diff
+
+    if best_within is not None:
+        return best_within, int(best_within_params), True
+    if best_under is not None:
+        return best_under, int(best_under_params), False
+    raise RuntimeError("Could not find a configuration under baseline budget.")
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="A/B/C test Baseline vs MoP vs CrossView at fixed parameter budgets on CIFAR-10"
@@ -290,10 +385,12 @@ def main():
             anchor_mode=args.xview_anchor_mode,
             fixed_k_star=args.xview_k_star,
         )
-        xview_cfg, xview_p = find_config_for_target(
+        xview_cfg, xview_p = find_model_config_match_baseline(
             ViTCrossView,
             n_classes=10,
             target_params=int(target),
+            baseline_cfg=base_cfg,
+            baseline_params=base_p,
             extra_kwargs=xview_extra,
         )
 
