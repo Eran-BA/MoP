@@ -122,6 +122,8 @@ class DualPathMSA(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
         self.beta_not = beta_not
         self.gates = gates or dict(and_=1.0, or_=0.0, not_=0.0, chain=0.0, base=1.0)
+        # Learnable gate for two-hop value transport mixing
+        self.chain_value_logit = nn.Parameter(torch.tensor(-2.0))
 
     def forward(
         self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None
@@ -132,7 +134,7 @@ class DualPathMSA(nn.Module):
         q1, k1, v1 = qkv[0], qkv[1], qkv[2]
         # Path 2
         qkv_b = self.qkv2(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
-        q2, k2, _v2 = qkv_b[0], qkv_b[1], qkv_b[2]
+        q2, k2, v2 = qkv_b[0], qkv_b[1], qkv_b[2]
 
         scale = 1.0 / math.sqrt(self.dk)
         S1 = torch.matmul(q1, k1.transpose(-2, -1)) * scale  # [B,H,N,N]
@@ -144,7 +146,23 @@ class DualPathMSA(nn.Module):
         )
         A = self.attn_drop(A)
 
-        y = torch.matmul(A, v1)  # [B,H,N,dk]
+        # Base output
+        y_base = torch.matmul(A, v1)  # [B,H,N,dk]
+
+        # Two-hop value transport: Y_chain = A1 @ (A2 @ V2)
+        if attn_mask is not None:
+            m = attn_mask == 0
+            A1 = F.softmax(S1.masked_fill(m, float("-inf")), dim=-1)
+            A2 = F.softmax(S2.masked_fill(m, float("-inf")), dim=-1)
+        else:
+            A1 = F.softmax(S1, dim=-1)
+            A2 = F.softmax(S2, dim=-1)
+        y_chain = torch.matmul(A1, torch.matmul(A2, v2))  # [B,H,N,dk]
+
+        # Mix with a small learnable gate (sigmoid to [0,1])
+        w = torch.sigmoid(self.chain_value_logit)
+        y = y_base + w * y_chain
+
         y = y.transpose(1, 2).reshape(B, N, D)
         return self.proj_drop(self.proj(y))
 
