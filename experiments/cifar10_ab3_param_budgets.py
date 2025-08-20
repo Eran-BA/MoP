@@ -298,9 +298,31 @@ def main():
         )
 
         print(f"Baseline cfg: {base_cfg} | params={base_p:,}")
-        print(
-            f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base)"
-        )
+        # Try to get within 1% of base if possible
+        try:
+            cfg1, p1, within = find_mop_config_match_baseline(
+                ViT_MoP,
+                n_classes=10,
+                target_params=int(target),
+                baseline_cfg=base_cfg,
+                baseline_params=base_p,
+                max_ratio_diff=0.01,
+                extra_kwargs={"n_views": args.mop_views, "n_kernels": args.mop_kernels},
+            )
+            mop_cfg, mop_p = cfg1, p1
+            if within:
+                print(
+                    f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base, within 1% & cfg ≤ baseline)"
+                )
+            else:
+                gap = (base_p - mop_p) / max(1, base_p)
+                print(
+                    f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base, gap {gap:.2%}, cfg ≤ baseline)"
+                )
+        except Exception:
+            print(
+                f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base)"
+            )
         print(f"XView cfg   : {xview_cfg} + {xview_extra} | params={xview_p:,}")
 
         accs_base: list[float] = []

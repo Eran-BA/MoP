@@ -182,6 +182,143 @@ def find_config_for_target(
     return best_cfg, int(best_params)
 
 
+def find_config_for_target_within_ratio_under_budget(
+    ctor,
+    n_classes: int,
+    target_params: int,
+    max_params: int,
+    max_ratio_diff: float = 0.01,
+    dims: Iterable[int] = (128, 160, 192, 224, 256, 320, 384, 448, 512, 640, 768),
+    depths: Iterable[int] = (6, 8, 10, 12),
+    heads_list: Iterable[int] = (4, 6, 8),
+    extra_kwargs: Optional[Dict] = None,
+) -> Tuple[Dict[str, int], int, bool]:
+    best_within = None
+    best_within_params = None
+    best_within_target_diff = None
+    best_under = None
+    best_under_params = None
+    best_under_target_diff = None
+    for heads in heads_list:
+        for dim in dims:
+            if dim % heads != 0:
+                continue
+            for depth in depths:
+                try:
+                    p = estimate_params(
+                        ctor, n_classes, dim, depth, heads, extra_kwargs
+                    )
+                except Exception:
+                    continue
+                if p > max_params:
+                    continue
+                rel_gap = abs(max_params - p) / max(1, max_params)
+                target_diff = abs(int(target_params) - p)
+                if rel_gap <= max_ratio_diff:
+                    if best_within is None or target_diff < best_within_target_diff:
+                        best_within = {"dim": dim, "depth": depth, "heads": heads}
+                        best_within_params = p
+                        best_within_target_diff = target_diff
+                if best_under is None or target_diff < best_under_target_diff:
+                    best_under = {"dim": dim, "depth": depth, "heads": heads}
+                    best_under_params = p
+                    best_under_target_diff = target_diff
+    if best_within is not None:
+        return best_within, int(best_within_params), True
+    if best_under is not None:
+        return best_under, int(best_under_params), False
+    raise RuntimeError("Could not find a configuration under the specified budget.")
+
+
+def find_mop_config_match_baseline(
+    ctor,
+    n_classes: int,
+    target_params: int,
+    baseline_cfg: Dict[str, int],
+    baseline_params: int,
+    max_ratio_diff: float = 0.01,
+    dims_choices: Iterable[int] = (
+        128,
+        160,
+        192,
+        224,
+        256,
+        320,
+        384,
+        448,
+        512,
+        640,
+        768,
+    ),
+    depths_choices: Iterable[int] = (6, 8, 10, 12),
+    heads_choices: Iterable[int] = (4, 6, 8),
+    extra_kwargs: Optional[Dict] = None,
+) -> Tuple[Dict[str, int], int, bool]:
+    base_dim = baseline_cfg["dim"]
+    base_depth = baseline_cfg["depth"]
+    base_heads = baseline_cfg["heads"]
+
+    dims = [d for d in dims_choices if d <= base_dim]
+    if base_dim not in dims:
+        dims.append(base_dim)
+    depths = [d for d in depths_choices if d <= base_depth]
+    if base_depth not in depths:
+        depths.append(base_depth)
+    heads_list = [h for h in heads_choices if h <= base_heads]
+    if base_heads not in heads_list:
+        heads_list.append(base_heads)
+
+    try:
+        p_same = estimate_params(
+            ctor, n_classes, base_dim, base_depth, base_heads, extra_kwargs
+        )
+        if p_same <= baseline_params:
+            rel_gap = abs(baseline_params - p_same) / max(1, baseline_params)
+            return (
+                {"dim": base_dim, "depth": base_depth, "heads": base_heads},
+                int(p_same),
+                (rel_gap <= max_ratio_diff),
+            )
+    except Exception:
+        pass
+
+    best_within = None
+    best_within_params = None
+    best_within_target_diff = None
+    best_under = None
+    best_under_params = None
+    best_under_target_diff = None
+    for heads in sorted(set(heads_list)):
+        for dim in sorted(set(dims)):
+            if dim % heads != 0:
+                continue
+            for depth in sorted(set(depths)):
+                try:
+                    p = estimate_params(
+                        ctor, n_classes, dim, depth, heads, extra_kwargs
+                    )
+                except Exception:
+                    continue
+                if p > baseline_params:
+                    continue
+                rel_gap = abs(baseline_params - p) / max(1, baseline_params)
+                target_diff = abs(int(target_params) - p)
+                if rel_gap <= max_ratio_diff:
+                    if best_within is None or target_diff < best_within_target_diff:
+                        best_within = {"dim": dim, "depth": depth, "heads": heads}
+                        best_within_params = p
+                        best_within_target_diff = target_diff
+                if best_under is None or target_diff < best_under_target_diff:
+                    best_under = {"dim": dim, "depth": depth, "heads": heads}
+                    best_under_params = p
+                    best_under_target_diff = target_diff
+    if best_within is not None:
+        return best_within, int(best_within_params), True
+    if best_under is not None:
+        return best_under, int(best_under_params), False
+    raise RuntimeError("Could not find an MoP configuration under baseline budget.")
+
+
 def find_config_for_target_under_budget(
     ctor,
     n_classes: int,
@@ -298,9 +435,31 @@ def main():
         )
 
         print(f"Baseline cfg: {base_cfg} | params={base_p:,}")
-        print(
-            f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base)"
-        )
+        # Try to get within 1% of base and prefer cfg ≤ baseline
+        try:
+            cfg1, p1, within = find_mop_config_match_baseline(
+                ViT_MoP,
+                n_classes=100,
+                target_params=int(target),
+                baseline_cfg=base_cfg,
+                baseline_params=base_p,
+                max_ratio_diff=0.01,
+                extra_kwargs={"n_views": args.mop_views, "n_kernels": args.mop_kernels},
+            )
+            mop_cfg, mop_p = cfg1, p1
+            if within:
+                print(
+                    f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base, within 1% & cfg ≤ baseline)"
+                )
+            else:
+                gap = (base_p - mop_p) / max(1, base_p)
+                print(
+                    f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base, gap {gap:.2%}, cfg ≤ baseline)"
+                )
+        except Exception:
+            print(
+                f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}}} | params={mop_p:,} (≤ base)"
+            )
         print(f"XView cfg   : {xview_cfg} + {xview_extra} | params={xview_p:,}")
 
         accs_base: list[float] = []
