@@ -385,7 +385,7 @@ def main():
             anchor_mode=args.xview_anchor_mode,
             fixed_k_star=args.xview_k_star,
         )
-        xview_cfg, xview_p = find_model_config_match_baseline(
+        xview_cfg, xview_p, _ = find_model_config_match_baseline(
             ViTCrossView,
             n_classes=10,
             target_params=int(target),

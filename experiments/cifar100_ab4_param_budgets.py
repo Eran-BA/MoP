@@ -394,7 +394,7 @@ def main():
             anchor_mode=args.xview_anchor_mode,
             fixed_k_star=args.xview_k_star,
         )
-        xview_cfg, xview_p = find_mop_config_match_baseline(
+        xview_cfg, xview_p, _ = find_mop_config_match_baseline(
             ViTCrossView,
             n_classes=100,
             target_params=int(target),
@@ -411,7 +411,7 @@ def main():
             chain=args.mh_gate_chain,
         )
         mh_extra = dict(gates=mh_gates, beta_not=args.mh_beta_not, hops=args.mh_hops)
-        mh_cfg, mh_p = find_mop_config_match_baseline(
+        mh_cfg, mh_p, _ = find_mop_config_match_baseline(
             ViTMultiHop,
             n_classes=100,
             target_params=int(target),
