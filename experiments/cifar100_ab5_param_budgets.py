@@ -448,7 +448,14 @@ def main():
             ew_cfg = None
             ew_p = None
             try_views = list(range(int(args.ew_views), 1, -1))
-            mlp_try = [x for x in {args.ew_mlp_ratio, 4.0, 3.0, 2.0, 1.5, 1.0} if x > 0]
+            # Deterministic, preference-ordered MLP ratio tries: start with requested, then fixed order
+            mlp_order = [args.ew_mlp_ratio, 4.0, 3.0, 2.0, 1.5, 1.0]
+            seen = set()
+            mlp_try = []
+            for r in mlp_order:
+                if r > 0 and r not in seen:
+                    mlp_try.append(r)
+                    seen.add(r)
             use_k3_try = (
                 [bool(args.ew_use_k3), False] if args.ew_use_k3 else [False, True]
             )
@@ -583,12 +590,14 @@ def main():
                 )
             # E
             if "E" in args.models:
-                chosen_ew_views = cfgs["E"][0].pop("_ew_views", args.ew_views)
-                chosen_ew_mlp = cfgs["E"][0].pop("_ew_mlp_ratio", args.ew_mlp_ratio)
-                chosen_ew_k3 = cfgs["E"][0].pop("_ew_use_k3", args.ew_use_k3)
+                cfg_e = cfgs["E"][0]
+                chosen_ew_views = cfg_e.get("_ew_views", args.ew_views)
+                chosen_ew_mlp = cfg_e.get("_ew_mlp_ratio", args.ew_mlp_ratio)
+                chosen_ew_k3 = cfg_e.get("_ew_use_k3", args.ew_use_k3)
+                base_kwargs = {k: v for k, v in cfg_e.items() if not k.startswith("_")}
                 models["E"] = ViTEdgewise(
                     n_classes=100,
-                    **cfgs["E"][0],
+                    **base_kwargs,
                     beta_not=args.ew_beta_not,
                     use_k3=bool(chosen_ew_k3),
                     n_views=int(chosen_ew_views),
