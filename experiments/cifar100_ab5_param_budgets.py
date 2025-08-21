@@ -300,6 +300,19 @@ def main():
     ap.add_argument("--large_threshold", type=int, default=50_000_000)
     ap.add_argument("--warmup_frac", type=float, default=0.1)
     ap.add_argument("--weight_decay", type=float, default=5e-2)
+    # Optional per-model LR override for Edgewise
+    ap.add_argument(
+        "--lr_e",
+        type=float,
+        default=None,
+        help="Absolute LR override for Edgewise (E). If set, ignores --lr_mult_e.",
+    )
+    ap.add_argument(
+        "--lr_mult_e",
+        type=float,
+        default=1.0,
+        help="Multiplier on base LR for Edgewise (E) when --lr_e is not set.",
+    )
     ap.add_argument("--eval_every", type=int, default=250)
     ap.add_argument("--tiny", action="store_true")
     ap.add_argument("--targets", type=int, nargs="+", default=[5_000_000, 50_000_000])
@@ -617,7 +630,13 @@ def main():
                 {}
             )
             for key, m in models.items():
-                opts[key] = make_opt(m, lr_current)
+                lr_for_model = lr_current
+                if key == "E":
+                    if args.lr_e is not None and args.lr_e > 0:
+                        lr_for_model = float(args.lr_e)
+                    else:
+                        lr_for_model = float(lr_current) * float(args.lr_mult_e)
+                opts[key] = make_opt(m, lr_for_model)
 
             steps = 0
             for m in models.values():
