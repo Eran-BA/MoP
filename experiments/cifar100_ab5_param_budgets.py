@@ -337,6 +337,9 @@ def main():
     ap.add_argument(
         "--ew_use_k3", action="store_true", help="use 3x3 conv stage in edgewise head"
     )
+    ap.add_argument(
+        "--ew_views", type=int, default=5, help="number of views in Edgewise model"
+    )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
     args = ap.parse_args()
 
@@ -433,7 +436,11 @@ def main():
                 baseline_cfg=base_cfg,
                 baseline_params=base_p,
                 max_ratio_diff=0.01,
-                extra_kwargs={"beta_not": args.ew_beta_not, "use_k3": args.ew_use_k3},
+                extra_kwargs={
+                    "beta_not": args.ew_beta_not,
+                    "use_k3": args.ew_use_k3,
+                    "n_views": args.ew_views,
+                },
             )[:2]
 
         print(f"Baseline cfg: {base_cfg} | params={base_p:,}")
@@ -501,6 +508,7 @@ def main():
                     **cfgs["E"][0],
                     beta_not=args.ew_beta_not,
                     use_k3=args.ew_use_k3,
+                    n_views=args.ew_views,
                 ).to(device)
 
             # Params line

@@ -171,6 +171,7 @@ python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
   - E: Edgewise-gated mixer
 - Choose via `--models` (e.g., `--models A B E`). Param matching keeps non-baselines at or under Baseline params and cfg.
 - Edgewise options: `--ew_beta_not`, `--ew_use_k3` (3×3 stage in the gate head).
+  - Views: `--ew_views` (default 5) to run E with 5 views and 3×3 stage like MoP.
 - Example:
 ```bash
 python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \

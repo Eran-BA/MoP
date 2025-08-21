@@ -51,7 +51,7 @@ def lse(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 class EdgewiseGateHead(nn.Module):
-    def __init__(self, in_ch: int = 6, hidden: int = 16, use_k3: bool = False):
+    def __init__(self, in_ch: int, hidden: int = 16, use_k3: bool = False):
         super().__init__()
         self.conv1 = nn.Conv2d(in_ch, hidden, kernel_size=1, bias=True)
         self.act = nn.GELU(approximate="tanh")
@@ -79,63 +79,82 @@ class EdgewiseMSA(nn.Module):
         proj_drop: float = 0.0,
         beta_not: float = 0.5,
         use_k3: bool = False,
+        n_views: int = 2,
     ):
         super().__init__()
         assert dim % heads == 0
         self.h = heads
         self.dk = dim // heads
         self.beta_not = beta_not
-        self.qkv1 = nn.Linear(dim, dim * 3, bias=False)
-        self.qkv2 = nn.Linear(dim, dim * 3, bias=False)
+        self.n_views = max(2, int(n_views))
+        self.qkv_list = nn.ModuleList(
+            [nn.Linear(dim, dim * 3, bias=False) for _ in range(self.n_views)]
+        )
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
-        self.edge_head = EdgewiseGateHead(in_ch=6, hidden=16, use_k3=use_k3)
+        in_ch = 2 * self.n_views + 2
+        self.edge_head = EdgewiseGateHead(in_ch=in_ch, hidden=16, use_k3=use_k3)
         self.chain_value_logit = nn.Parameter(torch.tensor(-2.0))
 
     def forward(
         self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         B, N, D = x.shape
-        qkv1 = self.qkv1(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
-        q1, k1, v1 = qkv1[0], qkv1[1], qkv1[2]
-        qkv2 = self.qkv2(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
-        q2, k2, v2 = qkv2[0], qkv2[1], qkv2[2]
+        qs = []
+        ks = []
+        vs = []
+        for lin in self.qkv_list:
+            qkv = lin(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
+            qs.append(qkv[0])
+            ks.append(qkv[1])
+            vs.append(qkv[2])
         scale = 1.0 / math.sqrt(self.dk)
-        S1 = torch.matmul(q1, k1.transpose(-2, -1)) * scale
-        S2 = torch.matmul(q2, k2.transpose(-2, -1)) * scale
+        S_list = [
+            torch.matmul(qs[i], ks[i].transpose(-2, -1)) * scale
+            for i in range(self.n_views)
+        ]
         if attn_mask is not None:
             m = attn_mask == 0
-            S1 = S1.masked_fill(m, float("-inf"))
-            S2 = S2.masked_fill(m, float("-inf"))
-        A1 = F.softmax(S1, dim=-1)
-        A2 = F.softmax(S2, dim=-1)
-        C_right = torch.matmul(A1, A2)
-        C_left = torch.matmul(A2, A1)
+            S_list = [S.masked_fill(m, float("-inf")) for S in S_list]
+        A_list = [F.softmax(S, dim=-1) for S in S_list]
+        C_fwd = A_list[0]
+        for i in range(1, self.n_views):
+            C_fwd = torch.matmul(C_fwd, A_list[i])
+        C_bwd = A_list[-1]
+        for i in range(self.n_views - 2, -1, -1):
+            C_bwd = torch.matmul(C_bwd, A_list[i])
         eps = 1e-6
         BtH = B * self.h
-        S1_img = S1.view(BtH, N, N)
-        S2_img = S2.view(BtH, N, N)
-        S1T_img = S1_img.transpose(1, 2)
-        S2T_img = S2_img.transpose(1, 2)
-        Cr_img = torch.log(C_right + eps).view(BtH, N, N)
-        Cl_img = torch.log(C_left + eps).view(BtH, N, N)
-        feat = torch.stack([S1_img, S2_img, S1T_img, S2T_img, Cr_img, Cl_img], dim=1)
+        S_imgs = [S.view(BtH, N, N) for S in S_list]
+        ST_imgs = [img.transpose(1, 2) for img in S_imgs]
+        Cr_img = torch.log(C_fwd + eps).view(BtH, N, N)
+        Cl_img = torch.log(C_bwd + eps).view(BtH, N, N)
+        feat = torch.stack(S_imgs + ST_imgs + [Cr_img, Cl_img], dim=1)
         gates = self.edge_head(feat)
         g_and, g_or, g_not, g_chain = gates[:, 0], gates[:, 1], gates[:, 2], gates[:, 3]
+        S1_img = S_imgs[0]
+        S_sum = S1_img
+        for i in range(1, self.n_views):
+            S_sum = S_sum + S_imgs[i]
+        lse_all = torch.logsumexp(torch.stack(S_imgs, dim=1), dim=1)
+        S_mean_others = (S_sum - S1_img) / max(1, self.n_views - 1)
         Smix = S1_img
-        Smix = Smix + g_and * (S1_img + S2_img - S1_img)
-        Smix = Smix + g_or * (lse(S1_img, S2_img) - S1_img)
-        Smix = Smix - g_not * (self.beta_not * S2_img)
+        Smix = Smix + g_and * (S_sum - S1_img)
+        Smix = Smix + g_or * (lse_all - S1_img)
+        Smix = Smix - g_not * (self.beta_not * S_mean_others)
         Smix = Smix + g_chain * Cr_img
         Smix = Smix.view(B, self.h, N, N)
         if attn_mask is not None:
             Smix = Smix.masked_fill(attn_mask == 0, float("-inf"))
         A = F.softmax(Smix, dim=-1)
         A = self.attn_drop(A)
+        v1 = vs[0]
         y_base = torch.matmul(A, v1)
-        transport = torch.matmul(A2, v2)
-        y_chain = torch.matmul(A1, transport)
+        transport = vs[-1]
+        for i in range(self.n_views - 1, 0, -1):
+            transport = torch.matmul(A_list[i], transport)
+        y_chain = torch.matmul(A_list[0], transport)
         w = torch.sigmoid(self.chain_value_logit)
         y = y_base + w * y_chain
         y = y.transpose(1, 2).reshape(B, N, D)
