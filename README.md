@@ -432,6 +432,13 @@ Colab-friendly examples. Use a smaller `--batch` if you hit OOM on MPS/Colab.
   --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
 ```
 
+#### Developer: Unified Multi-Head Attention
+Use `mop.models.UnifiedMSA` to instantiate attention variants directly inside a block:
+```python
+from mop.models import UnifiedMSA
+attn = UnifiedMSA(mode="C", dim=256, heads=4, use_transpose_cues=True, t1=0.2, t2=0.2)
+```
+
 ### Ablation Studies (Planned)
 ```bash
 python experiments/ablation_study.py --variants full views_only kernels_only no_gate

@@ -193,6 +193,15 @@ python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 
   --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
 ```
 
+### Multi-Head Attention variants (developer note)
+- All A/B/C/D/E correspond to multi-head attention variants. For direct usage in code, see `mop.models.UnifiedMSA` which supports modes:
+  - `A` (baseline), `B` (MoP-compatible baseline), `C` (Cross-View), `D` (Multi-Hop), `E` (Edgewise).
+  - Example:
+```python
+from mop.models import UnifiedMSA
+attn = UnifiedMSA(mode="E", dim=256, heads=4, n_views=5, use_k3=True, share_qkv=True)
+```
+
 ## Results
 
 - Each script writes CSV summaries under `results/` subdirectories (e.g., `results/cifar10_ab_param_budgets/`).
