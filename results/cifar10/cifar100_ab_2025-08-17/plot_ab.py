@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-import json, matplotlib.pyplot as plt, os
+import json
+import os
+
+import matplotlib.pyplot as plt
 
 here = os.path.dirname(__file__)
 agg_path = os.path.join(here, "aggregate_summary.json")
@@ -10,7 +13,9 @@ with open(agg_path, "r") as f:
 # Try multiple key conventions
 A = agg.get("baseline_mean") or agg.get("A_mean") or agg.get("baseline")
 B = agg.get("mop_mean") or agg.get("B_mean") or agg.get("mop")
-delta = agg.get("delta") if "delta" in agg else (None if A is None or B is None else B - A)
+delta = (
+    agg.get("delta") if "delta" in agg else (None if A is None or B is None else B - A)
+)
 ci_lo = agg.get("ci_low") or agg.get("ci_lo") or agg.get("ci_lower")
 ci_hi = agg.get("ci_high") or agg.get("ci_hi") or agg.get("ci_upper")
 

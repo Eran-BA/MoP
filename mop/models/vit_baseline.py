@@ -6,13 +6,14 @@ Author: Eran Ben Artzy
 
 import torch
 import torch.nn as nn
+
 from .components import ViTEncoder
 
 
 class ViT_Baseline(nn.Module):
     """
     Standard Vision Transformer baseline.
-    
+
     Args:
         dim: Embedding dimension
         depth: Number of transformer layers
@@ -23,7 +24,7 @@ class ViT_Baseline(nn.Module):
         patch: Patch size
         img_size: Input image size
     """
-    
+
     def __init__(
         self,
         dim=256,
@@ -37,9 +38,9 @@ class ViT_Baseline(nn.Module):
     ):
         super().__init__()
         assert dim % heads == 0, f"dim {dim} not divisible by heads {heads}"
-        
+
         num_tokens = (img_size // patch) ** 2
-        
+
         self.enc = ViTEncoder(
             dim=dim,
             depth=depth,
@@ -49,16 +50,16 @@ class ViT_Baseline(nn.Module):
             patch=patch,
             num_tokens=num_tokens,
         )
-        
+
         self.cls = nn.Linear(dim, n_classes, bias=False)
-    
+
     def forward(self, x):
         """
         Forward pass.
-        
+
         Args:
             x: Input tensor (B, 3, H, W)
-            
+
         Returns:
             logits: Classification logits (B, n_classes)
         """

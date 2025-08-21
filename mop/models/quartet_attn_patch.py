@@ -7,9 +7,10 @@ and learns to mix them via a learnable gate σ(m).
 Author: Eran Ben Artzy
 """
 
+import math
 from dataclasses import dataclass
 from typing import Optional
-import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -48,8 +49,12 @@ class CausalSelfAttention(nn.Module):
         if config.use_quartet:
             self.q2_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
             self.k2_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
-            self.mixture = nn.Parameter(torch.tensor([config.quartet_gate_init], dtype=torch.float32))
-            self.quartet_scale = nn.Parameter(torch.tensor([config.quartet_scale], dtype=torch.float32))
+            self.mixture = nn.Parameter(
+                torch.tensor([config.quartet_gate_init], dtype=torch.float32)
+            )
+            self.quartet_scale = nn.Parameter(
+                torch.tensor([config.quartet_scale], dtype=torch.float32)
+            )
         else:
             self.q2_proj = None
             self.k2_proj = None
@@ -61,11 +66,18 @@ class CausalSelfAttention(nn.Module):
 
         self.register_buffer(
             "causal_mask",
-            torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size),
+            torch.tril(torch.ones(config.block_size, config.block_size)).view(
+                1, 1, config.block_size, config.block_size
+            ),
             persistent=False,
         )
 
-    def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None, need_weights: bool = False):
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        need_weights: bool = False,
+    ):
         B, T, C = x.size()
         H, Dh = self.n_head, self.head_dim
 
@@ -89,7 +101,9 @@ class CausalSelfAttention(nn.Module):
             q2k2_norm = _norm(q2k2)
 
             m = torch.sigmoid(self.mixture)  # scalar in [0,1]
-            scores = (1.0 - m) * qk_norm + m * (qk_norm * q2k2_norm) * self.quartet_scale
+            scores = (1.0 - m) * qk_norm + m * (
+                qk_norm * q2k2_norm
+            ) * self.quartet_scale
         else:
             mu = qk.mean(dim=-1, keepdim=True)
             sigma = qk.std(dim=-1, keepdim=True)
@@ -116,8 +130,8 @@ class CausalSelfAttention(nn.Module):
 class MLP(nn.Module):
     def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.fc = nn.Linear(config.n_embd, 4*config.n_embd, bias=config.bias)
-        self.proj = nn.Linear(4*config.n_embd, config.n_embd, bias=config.bias)
+        self.fc = nn.Linear(config.n_embd, 4 * config.n_embd, bias=config.bias)
+        self.proj = nn.Linear(4 * config.n_embd, config.n_embd, bias=config.bias)
         self.drop = nn.Dropout(config.dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -136,7 +150,9 @@ class Block(nn.Module):
         self.ln2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
 
-    def forward(self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attention_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         x = x + self.attn(self.ln1(x), attention_mask=attention_mask)
         x = x + self.mlp(self.ln2(x))
         return x
@@ -147,7 +163,11 @@ class TinyTransformerLM(nn.Module):
         super().__init__()
         self.config = config
         self.wte = nn.Embedding(vocab_size, config.n_embd)
-        self.wpe = nn.Embedding(config.block_size, config.n_embd) if config.use_abs_pos_emb else None
+        self.wpe = (
+            nn.Embedding(config.block_size, config.n_embd)
+            if config.use_abs_pos_emb
+            else None
+        )
         self.drop = nn.Dropout(config.dropout)
         self.blocks = nn.ModuleList([Block(config) for _ in range(config.n_layer)])
         self.ln_f = nn.LayerNorm(config.n_embd)
@@ -163,7 +183,12 @@ class TinyTransformerLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx: torch.Tensor, attention_mask: Optional[torch.Tensor] = None, targets: Optional[torch.Tensor] = None):
+    def forward(
+        self,
+        idx: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        targets: Optional[torch.Tensor] = None,
+    ):
         B, T = idx.shape
         assert T <= self.config.block_size, "Sequence length > block size"
 

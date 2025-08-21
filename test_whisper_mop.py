@@ -12,20 +12,17 @@ This script demonstrates:
 Author: Eran Ben Artzy
 """
 
-import torch
-import sys
 import os
+import sys
+
+import torch
 
 # Add the project root (parent of 'mop') to path so 'import mop.models' works
 PROJECT_ROOT = os.path.dirname(__file__)
 sys.path.insert(0, PROJECT_ROOT)
 
-from mop.models import (
-    WhisperConfig,
-    WhisperMoP,
-    create_whisper_mop,
-    create_whisper_baseline,
-)
+from mop.models import (WhisperConfig, WhisperMoP, create_whisper_baseline,
+                        create_whisper_mop)
 
 
 def test_individual_models():
@@ -70,6 +67,7 @@ def test_individual_models():
     except Exception as e:
         print(f"   ❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -102,7 +100,7 @@ def test_forward_pass():
 
     try:
         # Inputs
-        mel = torch.randn(batch_size, t_audio, config.n_mels)          # (B, T_audio, n_mels)
+        mel = torch.randn(batch_size, t_audio, config.n_mels)  # (B, T_audio, n_mels)
         dec_input_ids = torch.randint(0, vocab_size, (batch_size, t_text))
         targets = torch.randint(0, vocab_size, (batch_size, t_text))
 
@@ -111,14 +109,18 @@ def test_forward_pass():
         baseline = create_whisper_baseline(config).eval()
         with torch.no_grad():
             logits, loss, gates = baseline(mel, dec_input_ids, targets=targets)
-        print(f"   ✅ Logits: {tuple(logits.shape)}, Loss: {loss.item():.4f}, Gates: {tuple(gates.shape)}")
+        print(
+            f"   ✅ Logits: {tuple(logits.shape)}, Loss: {loss.item():.4f}, Gates: {tuple(gates.shape)}"
+        )
 
         # MoP
         print("\n🎵 Testing MoP forward pass...")
         mop = create_whisper_mop(config).eval()
         with torch.no_grad():
             logits, loss, gates = mop(mel, dec_input_ids, targets=targets)
-        print(f"   ✅ Logits: {tuple(logits.shape)}, Loss: {loss.item():.4f}, Gates: {tuple(gates.shape)}")
+        print(
+            f"   ✅ Logits: {tuple(logits.shape)}, Loss: {loss.item():.4f}, Gates: {tuple(gates.shape)}"
+        )
 
         # MoP gate extraction
         print("\n🔍 Testing MoP gate extraction...")
@@ -131,6 +133,7 @@ def test_forward_pass():
     except Exception as e:
         print(f"   ❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -160,7 +163,7 @@ def test_audio_processing():
         # Synthetic spectrogram-like input
         batch_size = 2
         time_steps = 24
-        mel = torch.randn(batch_size, time_steps, config.n_mels)       # (B, T, n_mels)
+        mel = torch.randn(batch_size, time_steps, config.n_mels)  # (B, T, n_mels)
         print(f"   📊 Input spectrogram: {tuple(mel.shape)}")
 
         # Decoder input
@@ -171,8 +174,10 @@ def test_audio_processing():
         # MoP model
         mop = create_whisper_mop(config).eval()
         with torch.no_grad():
-            logits, loss, gates = mop(mel, dec_input_ids)               # targets=None
-        print(f"   ✅ Forward pass successful: logits {tuple(logits.shape)}, gates {tuple(gates.shape)}")
+            logits, loss, gates = mop(mel, dec_input_ids)  # targets=None
+        print(
+            f"   ✅ Forward pass successful: logits {tuple(logits.shape)}, gates {tuple(gates.shape)}"
+        )
 
         # Gate maps only
         with torch.no_grad():
@@ -191,6 +196,7 @@ def test_audio_processing():
     except Exception as e:
         print(f"   ❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -252,6 +258,7 @@ def test_temporal_spectral_patterns():
     except Exception as e:
         print(f"   ❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
