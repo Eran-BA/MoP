@@ -170,12 +170,25 @@ python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
   - D: Multi-Hop
   - E: Edgewise-gated mixer
 - Choose via `--models` (e.g., `--models A B E`). Param matching keeps non-baselines at or under Baseline params and cfg.
-- Edgewise options: `--ew_beta_not`, `--ew_use_k3` (3×3 stage in the gate head).
-  - Views: `--ew_views` (default 5) to run E with 5 views and 3×3 stage like MoP.
-- Example:
+- Edgewise options:
+  - `--ew_views` (default 5): number of views
+  - `--ew_use_k3`: enable 3×3 conv stage in the gate head
+  - `--ew_share_qkv`: share QKV across views with per-view scalings (reduces params)
+  - `--ew_mlp_ratio`: MLP ratio for E (lower values reduce params)
+  - `--debug_budget`: print detailed search logs for parameter matching
+- Automatic fallback ladder for E during matching: views → mlp_ratio → drop 3×3.
+- Example (~5M):
 ```bash
 python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \
   --models A B C D E \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
+  --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
+```
+- Example (~50M, with Edgewise-specific flags; adjust `--batch` for device memory):
+```bash
+python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1500 \
+  --models A B C D E --batch 64 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --debug_budget \
   --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
   --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
 ```

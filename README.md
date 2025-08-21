@@ -416,6 +416,22 @@ python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --s
 python experiments/cifar100_augmented.py --seeds 0 1 2 --output results/cifar100
 ```
 
+### A/B/C/D/E on CIFAR-100 (param-matched)
+Colab-friendly examples. Use a smaller `--batch` if you hit OOM on MPS/Colab.
+
+```bash
+!python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \
+  --models A B C D E \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
+  --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
+
+!python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1500 \
+  --models A B C D E --batch 64 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --debug_budget \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
+  --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
+```
+
 ### Ablation Studies (Planned)
 ```bash
 python experiments/ablation_study.py --variants full views_only kernels_only no_gate
