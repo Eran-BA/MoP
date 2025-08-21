@@ -67,6 +67,16 @@ python experiments/cifar10_multihop_gates.py --steps 1000 --seeds 0 1 --hops 3 -
 python experiments/cifar100_multihop_gates.py --steps 1500 --seeds 0 1 --hops 3 --gate_chain 1.0
 ```
 
+- Edgewise-gated boolean mixer (CIFAR-10):
+```bash
+python experiments/cifar10_edgewise_gates.py --steps 1000 --seeds 0 1
+```
+
+- Edgewise-gated boolean mixer (CIFAR-100):
+```bash
+python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
+```
+
 ## Scripts
 
 ### `cifar10_multi_seed.py`
@@ -114,6 +124,14 @@ python experiments/cifar100_multihop_gates.py --steps 1500 --seeds 0 1 --hops 3 
 
 ### `cifar100_multihop_gates.py`
 - CIFAR-100 version of multi-hop with identical options.
+
+### `cifar10_edgewise_gates.py`
+- Per-edge (i,j) gates predicted by a tiny conv head over channels
+  `[S1, S2, S1ᵀ, S2ᵀ, log(C→+ε), log(C←+ε)]`. Produces `g_and, g_or, g_not, g_chain ∈ [0,1]^{T×T}`.
+- Includes value-aware chain transport `A1 @ (A2 @ V2)` mixed via a learnable sigmoid weight.
+
+### `cifar100_edgewise_gates.py`
+- CIFAR-100 version of the edgewise-gated mixer.
 
 ### `cifar10_crossview_mixer.py`
 - Cross-view mixer attention:

@@ -1,0 +1,37 @@
+Device: mps
+✅ Imported Baseline/MoP from mop
+✅ Imported ViTCrossView (CIFAR-100) from experiments
+✅ Imported ViTMultiHop (CIFAR-100) from experiments
+
+🎯 Target parameters: 5,000,000
+Using learning rate: 0.003 (warmup_frac=0.1)
+Baseline cfg: {'dim': 224, 'depth': 8, 'heads': 4} | params=4,872,000
+MoP cfg     : {'dim': 224, 'depth': 6, 'heads': 4} + {'n_views': 5, 'n_kernels': 3} | params=3,667,956 (≤ base, gap 24.71%, cfg ≤ baseline)
+XView cfg   : {'dim': 224, 'depth': 6, 'heads': 4} + {'use_transpose_cues': True, 't1': 0.2, 't2': 0.2, 'enable_per_key_prior': True, 'prior_weight': 0.5, 'anchor_mode': 'argmax_row_sum', 'fixed_k_star': 0} | params=4,569,176
+MultiHop cfg: {'dim': 224, 'depth': 6, 'heads': 4} + {'gates': {'base': 1.0, 'and_': 1.0, 'or_': 0.0, 'not_': 0.0, 'chain': 1.0}, 'beta_not': 0.5, 'hops': 3} | params=4,569,158
+
+🔬 Seed 0
+Params | base: 4,872,000 | mop: 3,667,956 | xview: 4,569,176 | multihop: 4,569,158
+step    1 | Lb=4.681 Lm=4.643 Lx=4.734 Lh=4.710 | Ab=0.010 Am=0.009 Ax=0.012 Ah=0.012
+/Users/rnbnrzy/mop/.venv/lib/python3.9/site-packages/torch/optim/lr_scheduler.py:209: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
+  warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
+step  100 | Lb=3.895 Lm=3.854 Lx=3.812 Lh=3.767 | Ab=0.082 Am=0.088 Ax=0.088 Ah=0.085
+step  200 | Lb=3.859 Lm=3.705 Lx=3.833 Lh=3.882 | Ab=0.102 Am=0.112 Ax=0.116 Ah=0.106
+step  300 | Lb=3.753 Lm=3.684 Lx=3.684 Lh=3.842 | Ab=0.124 Am=0.127 Ax=0.138 Ah=0.123
+step  400 | Lb=3.527 Lm=3.502 Lx=3.480 Lh=3.558 | Ab=0.147 Am=0.156 Ax=0.155 Ah=0.146
+step  500 | Lb=3.439 Lm=3.324 Lx=3.401 Lh=3.480 | Ab=0.165 Am=0.172 Ax=0.174 Ah=0.149
+step  600 | Lb=3.304 Lm=3.339 Lx=3.325 Lh=3.557 | Ab=0.193 Am=0.201 Ax=0.200 Ah=0.158
+step  700 | Lb=3.253 Lm=3.170 Lx=3.101 Lh=3.368 | Ab=0.195 Am=0.214 Ax=0.197 Ah=0.173
+step  800 | Lb=3.230 Lm=3.211 Lx=3.271 Lh=3.424 | Ab=0.215 Am=0.242 Ax=0.232 Ah=0.183
+step  900 | Lb=2.788 Lm=2.757 Lx=2.784 Lh=2.973 | Ab=0.245 Am=0.261 Ax=0.247 Ah=0.210
+step 1000 | Lb=3.003 Lm=2.923 Lx=2.970 Lh=3.205 | Ab=0.262 Am=0.288 Ax=0.277 Ah=0.213
+step 1100 | Lb=2.908 Lm=2.699 Lx=2.739 Lh=3.071 | Ab=0.268 Am=0.302 Ax=0.285 Ah=0.224
+step 1200 | Lb=2.790 Lm=2.670 Lx=2.706 Lh=2.975 | Ab=0.286 Am=0.321 Ax=0.310 Ah=0.244
+step 1300 | Lb=2.585 Lm=2.489 Lx=2.497 Lh=2.822 | Ab=0.303 Am=0.332 Ax=0.318 Ah=0.253
+step 1400 | Lb=2.703 Lm=2.633 Lx=2.651 Lh=2.953 | Ab=0.308 Am=0.338 Ax=0.326 Ah=0.257
+step 1500 | Lb=2.624 Lm=2.541 Lx=2.532 Lh=2.833 | Ab=0.312 Am=0.340 Ax=0.325 Ah=0.259
+seed 0: base=0.3117  mop=0.3404  xview=0.3251  multihop=0.2586
+
+🔬 Seed 1
+Params | base: 4,872,000 | mop: 3,667,956 | xview: 4,569,176 | multihop: 4,569,158
+step    1 | Lb=4.657 Lm=4.691 Lx=4.682 Lh=4.644 | Ab=0.013 Am=0.011 Ax=0.007 Ah=0.009
