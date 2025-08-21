@@ -340,6 +340,11 @@ def main():
     ap.add_argument(
         "--ew_views", type=int, default=5, help="number of views in Edgewise model"
     )
+    ap.add_argument(
+        "--ew_share_qkv",
+        action="store_true",
+        help="share QKV across views with per-view scales",
+    )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
     args = ap.parse_args()
 
@@ -465,6 +470,7 @@ def main():
                             "beta_not": args.ew_beta_not,
                             "use_k3": args.ew_use_k3,
                             "n_views": int(v),
+                            "share_qkv": args.ew_share_qkv,
                         },
                     )
                     ew_cfg, ew_p = ew_cfg2, ew_p2
@@ -546,6 +552,7 @@ def main():
                     beta_not=args.ew_beta_not,
                     use_k3=args.ew_use_k3,
                     n_views=int(chosen_ew_views),
+                    share_qkv=args.ew_share_qkv,
                 ).to(device)
 
             # Params line

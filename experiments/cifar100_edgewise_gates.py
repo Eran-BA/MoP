@@ -80,6 +80,7 @@ class EdgewiseMSA(nn.Module):
         beta_not: float = 0.5,
         use_k3: bool = False,
         n_views: int = 2,
+        share_qkv: bool = False,
     ):
         super().__init__()
         assert dim % heads == 0
@@ -87,9 +88,17 @@ class EdgewiseMSA(nn.Module):
         self.dk = dim // heads
         self.beta_not = beta_not
         self.n_views = max(2, int(n_views))
-        self.qkv_list = nn.ModuleList(
-            [nn.Linear(dim, dim * 3, bias=False) for _ in range(self.n_views)]
-        )
+        self.share_qkv = bool(share_qkv)
+        if self.share_qkv:
+            self.qkv = nn.Linear(dim, dim * 3, bias=False)
+            # per-view, per-head diagonal scales
+            self.q_scale = nn.Parameter(torch.ones(self.n_views, self.h, 1, self.dk))
+            self.k_scale = nn.Parameter(torch.ones(self.n_views, self.h, 1, self.dk))
+            self.v_scale = nn.Parameter(torch.ones(self.n_views, self.h, 1, self.dk))
+        else:
+            self.qkv_list = nn.ModuleList(
+                [nn.Linear(dim, dim * 3, bias=False) for _ in range(self.n_views)]
+            )
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
@@ -104,11 +113,19 @@ class EdgewiseMSA(nn.Module):
         qs = []
         ks = []
         vs = []
-        for lin in self.qkv_list:
-            qkv = lin(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
-            qs.append(qkv[0])
-            ks.append(qkv[1])
-            vs.append(qkv[2])
+        if self.share_qkv:
+            qkv = self.qkv(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
+            q_base, k_base, v_base = qkv[0], qkv[1], qkv[2]
+            for i in range(self.n_views):
+                qs.append(q_base * self.q_scale[i])
+                ks.append(k_base * self.k_scale[i])
+                vs.append(v_base * self.v_scale[i])
+        else:
+            for lin in self.qkv_list:
+                qkv = lin(x).reshape(B, N, 3, self.h, self.dk).permute(2, 0, 3, 1, 4)
+                qs.append(qkv[0])
+                ks.append(qkv[1])
+                vs.append(qkv[2])
         scale = 1.0 / math.sqrt(self.dk)
         S_list = [
             torch.matmul(qs[i], ks[i].transpose(-2, -1)) * scale
