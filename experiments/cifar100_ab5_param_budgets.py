@@ -429,19 +429,55 @@ def main():
                 extra_kwargs=mh_extra,
             )[:2]
         if "E" in args.models:
-            cfgs["E"] = find_model_config_match_baseline(
-                ViTEdgewise,
-                n_classes=100,
-                target_params=int(target),
-                baseline_cfg=base_cfg,
-                baseline_params=base_p,
-                max_ratio_diff=0.01,
-                extra_kwargs={
-                    "beta_not": args.ew_beta_not,
-                    "use_k3": args.ew_use_k3,
-                    "n_views": args.ew_views,
-                },
-            )[:2]
+            # Try with requested views; if it does not fit under baseline, progressively relax views
+            # and widen the search space (smaller dims/depth options)
+            ew_cfg = None
+            ew_p = None
+            try_views = list(range(int(args.ew_views), 1, -1))
+            for v in try_views:
+                try:
+                    ew_cfg2, ew_p2, _within = find_model_config_match_baseline(
+                        ViTEdgewise,
+                        n_classes=100,
+                        target_params=int(target),
+                        baseline_cfg=base_cfg,
+                        baseline_params=base_p,
+                        max_ratio_diff=0.01,
+                        dims_choices=(
+                            64,
+                            96,
+                            112,
+                            128,
+                            160,
+                            192,
+                            224,
+                            256,
+                            320,
+                            384,
+                            448,
+                            512,
+                            640,
+                            768,
+                        ),
+                        depths_choices=(4, 6, 8, 10, 12),
+                        heads_choices=(4, 6, 8),
+                        extra_kwargs={
+                            "beta_not": args.ew_beta_not,
+                            "use_k3": args.ew_use_k3,
+                            "n_views": int(v),
+                        },
+                    )
+                    ew_cfg, ew_p = ew_cfg2, ew_p2
+                    # Attach chosen views so we can instantiate below
+                    ew_cfg["_ew_views"] = int(v)
+                    break
+                except Exception:
+                    continue
+            if ew_cfg is None:
+                raise RuntimeError(
+                    "Edgewise (E) could not fit under baseline budget. Try reducing --ew_views or target params."
+                )
+            cfgs["E"] = (ew_cfg, ew_p)
 
         print(f"Baseline cfg: {base_cfg} | params={base_p:,}")
         if "B" in cfgs:
@@ -503,12 +539,13 @@ def main():
                 )
             # E
             if "E" in args.models:
+                chosen_ew_views = cfgs["E"][0].pop("_ew_views", args.ew_views)
                 models["E"] = ViTEdgewise(
                     n_classes=100,
                     **cfgs["E"][0],
                     beta_not=args.ew_beta_not,
                     use_k3=args.ew_use_k3,
-                    n_views=args.ew_views,
+                    n_views=int(chosen_ew_views),
                 ).to(device)
 
             # Params line
