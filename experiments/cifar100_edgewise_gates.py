@@ -202,11 +202,20 @@ class BlockEdgewise(nn.Module):
         drop_path: float = 0.0,
         beta_not: float = 0.5,
         use_k3: bool = False,
+        n_views: int = 2,
+        share_qkv: bool = False,
     ):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
         self.attn = EdgewiseMSA(
-            dim, heads, attn_drop, drop, beta_not=beta_not, use_k3=use_k3
+            dim,
+            heads,
+            attn_drop,
+            drop,
+            beta_not=beta_not,
+            use_k3=use_k3,
+            n_views=n_views,
+            share_qkv=share_qkv,
         )
         self.dp1 = DropPath(drop_path) if DropPath is not None else nn.Identity()
         self.ln2 = nn.LayerNorm(dim)
@@ -233,6 +242,8 @@ class ViTEdgewise(nn.Module):
         num_tokens: int = 64,
         beta_not: float = 0.5,
         use_k3: bool = False,
+        n_views: int = 2,
+        share_qkv: bool = False,
     ):
         super().__init__()
         if PatchEmbed is None:
@@ -254,6 +265,8 @@ class ViTEdgewise(nn.Module):
                     dps[i],
                     beta_not=beta_not,
                     use_k3=use_k3,
+                    n_views=n_views,
+                    share_qkv=share_qkv,
                 )
                 for i in range(depth)
             ]

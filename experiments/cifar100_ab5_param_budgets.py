@@ -341,9 +341,18 @@ def main():
         "--ew_views", type=int, default=5, help="number of views in Edgewise model"
     )
     ap.add_argument(
+        "--ew_mlp_ratio",
+        type=float,
+        default=4.0,
+        help="Edgewise MLP ratio (lower to help fit under baseline)",
+    )
+    ap.add_argument(
         "--ew_share_qkv",
         action="store_true",
         help="share QKV across views with per-view scales",
+    )
+    ap.add_argument(
+        "--debug_budget", action="store_true", help="print extra budget search logs"
     )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
     args = ap.parse_args()
@@ -434,51 +443,80 @@ def main():
                 extra_kwargs=mh_extra,
             )[:2]
         if "E" in args.models:
-            # Try with requested views; if it does not fit under baseline, progressively relax views
-            # and widen the search space (smaller dims/depth options)
+            # Try with requested views; if it does not fit under baseline, progressively relax:
+            # views -> mlp_ratio -> drop 3x3 conv
             ew_cfg = None
             ew_p = None
             try_views = list(range(int(args.ew_views), 1, -1))
+            mlp_try = [x for x in {args.ew_mlp_ratio, 4.0, 3.0, 2.0, 1.5, 1.0} if x > 0]
+            use_k3_try = (
+                [bool(args.ew_use_k3), False] if args.ew_use_k3 else [False, True]
+            )
+            if args.debug_budget:
+                print(
+                    f"[DEBUG] E search: views candidates={try_views}, mlp_ratios={mlp_try}, use_k3 order={use_k3_try}, share_qkv={args.ew_share_qkv}"
+                )
             for v in try_views:
-                try:
-                    ew_cfg2, ew_p2, _within = find_model_config_match_baseline(
-                        ViTEdgewise,
-                        n_classes=100,
-                        target_params=int(target),
-                        baseline_cfg=base_cfg,
-                        baseline_params=base_p,
-                        max_ratio_diff=0.01,
-                        dims_choices=(
-                            64,
-                            96,
-                            112,
-                            128,
-                            160,
-                            192,
-                            224,
-                            256,
-                            320,
-                            384,
-                            448,
-                            512,
-                            640,
-                            768,
-                        ),
-                        depths_choices=(4, 6, 8, 10, 12),
-                        heads_choices=(4, 6, 8),
-                        extra_kwargs={
-                            "beta_not": args.ew_beta_not,
-                            "use_k3": args.ew_use_k3,
-                            "n_views": int(v),
-                            "share_qkv": args.ew_share_qkv,
-                        },
-                    )
-                    ew_cfg, ew_p = ew_cfg2, ew_p2
-                    # Attach chosen views so we can instantiate below
-                    ew_cfg["_ew_views"] = int(v)
+                for r in mlp_try:
+                    for use_k3_flag in use_k3_try:
+                        try:
+                            xkwargs = {
+                                "beta_not": args.ew_beta_not,
+                                "use_k3": bool(use_k3_flag),
+                                "n_views": int(v),
+                                "share_qkv": args.ew_share_qkv,
+                                "mlp_ratio": float(r),
+                            }
+                            ew_cfg2, ew_p2, within = find_model_config_match_baseline(
+                                ViTEdgewise,
+                                n_classes=100,
+                                target_params=int(target),
+                                baseline_cfg=base_cfg,
+                                baseline_params=base_p,
+                                max_ratio_diff=0.01,
+                                dims_choices=(
+                                    64,
+                                    96,
+                                    112,
+                                    128,
+                                    160,
+                                    192,
+                                    224,
+                                    256,
+                                    320,
+                                    384,
+                                    448,
+                                    512,
+                                    640,
+                                    768,
+                                ),
+                                depths_choices=(3, 4, 5, 6, 7, 8, 9, 10, 12),
+                                heads_choices=(4, 6, 8),
+                                extra_kwargs=xkwargs,
+                            )
+                            ew_cfg, ew_p = ew_cfg2, ew_p2
+                            ew_cfg["_ew_views"] = int(v)
+                            ew_cfg["_ew_mlp_ratio"] = float(r)
+                            ew_cfg["_ew_use_k3"] = bool(use_k3_flag)
+                            if args.debug_budget:
+                                print(
+                                    f"[DEBUG] E fit: views={v}, mlp_ratio={r}, use_k3={use_k3_flag} -> cfg={ew_cfg}, params={ew_p2:,}, within1%={within}"
+                                )
+                            raise StopIteration  # break all loops
+                        except StopIteration:
+                            break
+                        except Exception as e:
+                            if args.debug_budget:
+                                print(
+                                    f"[DEBUG] E try failed: views={v}, mlp_ratio={r}, use_k3={use_k3_flag} err={e}"
+                                )
+                            continue
+                    else:
+                        continue
                     break
-                except Exception:
+                else:
                     continue
+                break
             if ew_cfg is None:
                 raise RuntimeError(
                     "Edgewise (E) could not fit under baseline budget. Try reducing --ew_views or target params."
@@ -546,13 +584,16 @@ def main():
             # E
             if "E" in args.models:
                 chosen_ew_views = cfgs["E"][0].pop("_ew_views", args.ew_views)
+                chosen_ew_mlp = cfgs["E"][0].pop("_ew_mlp_ratio", args.ew_mlp_ratio)
+                chosen_ew_k3 = cfgs["E"][0].pop("_ew_use_k3", args.ew_use_k3)
                 models["E"] = ViTEdgewise(
                     n_classes=100,
                     **cfgs["E"][0],
                     beta_not=args.ew_beta_not,
-                    use_k3=args.ew_use_k3,
+                    use_k3=bool(chosen_ew_k3),
                     n_views=int(chosen_ew_views),
                     share_qkv=args.ew_share_qkv,
+                    mlp_ratio=float(chosen_ew_mlp),
                 ).to(device)
 
             # Params line

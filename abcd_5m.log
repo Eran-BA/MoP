@@ -48,3 +48,9 @@ step 1000 | Lb=2.892 Lm=2.813 Lx=2.985 Lh=3.161 | Ab=0.271 Am=0.302 Ax=0.252 Ah=
 step 1100 | Lb=2.685 Lm=2.593 Lx=2.782 Lh=2.927 | Ab=0.293 Am=0.312 Ax=0.271 Ah=0.238
 step 1200 | Lb=2.362 Lm=2.267 Lx=2.438 Lh=2.576 | Ab=0.308 Am=0.337 Ax=0.290 Ah=0.252
 step 1300 | Lb=2.712 Lm=2.591 Lx=2.826 Lh=2.975 | Ab=0.322 Am=0.342 Ax=0.298 Ah=0.265
+step 1400 | Lb=2.639 Lm=2.531 Lx=2.724 Lh=2.890 | Ab=0.326 Am=0.353 Ax=0.306 Ah=0.272
+step 1500 | Lb=2.637 Lm=2.537 Lx=2.704 Lh=2.882 | Ab=0.326 Am=0.353 Ax=0.307 Ah=0.272
+seed 1: base=0.3262  mop=0.3532  xview=0.3068  multihop=0.2720
+
+📊 Target 5,000,000: base=0.3189±0.0073 | mop=0.3468±0.0064 | xview=0.3160±0.0091 | multihop=0.2653±0.0067
+Results saved to: results/cifar100_ab4_param_budgets/cifar100_ab4_target_5000000.csv
