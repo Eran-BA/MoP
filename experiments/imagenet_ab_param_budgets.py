@@ -73,7 +73,14 @@ def try_import_models():
             print(f"❌ Failed to import Baseline/MoP from {desc}: {e}")
     if ViT_Baseline is None or ViT_MoP is None:
         raise ImportError("Could not import ViT_Baseline and ViT_MoP")
-    return ViT_Baseline, ViT_MoP
+    # Import Edgewise from experiments implementation
+    try:
+        from cifar100_edgewise_gates import ViTEdgewise  # type: ignore
+
+        print("✅ Imported ViTEdgewise from experiments")
+    except Exception as e:
+        raise ImportError(f"Could not import ViTEdgewise: {e}")
+    return ViT_Baseline, ViT_MoP, ViTEdgewise
 
 
 def get_loaders(
@@ -318,9 +325,9 @@ def main():
         "--models",
         type=str,
         nargs="+",
-        choices=["A", "B"],
+        choices=["A", "B", "E"],
         default=["A", "B"],
-        help="Which models to run: A=Baseline, B=MoP",
+        help="Which models to run: A=Baseline, B=MoP, E=Edgewise",
     )
     # MoP
     ap.add_argument("--mop_views", type=int, default=5)
@@ -329,6 +336,12 @@ def main():
     ap.add_argument("--img_size", type=int, default=224)
     ap.add_argument("--patch", type=int, default=16)
     ap.add_argument("--drop_path", type=float, default=0.4)
+    # Edgewise
+    ap.add_argument("--ew_beta_not", type=float, default=0.5)
+    ap.add_argument("--ew_use_k3", action="store_true")
+    ap.add_argument("--ew_views", type=int, default=5)
+    ap.add_argument("--ew_share_qkv", action="store_true")
+    ap.add_argument("--ew_mlp_ratio", type=float, default=4.0)
     # Advanced regularization/augmentation
     ap.add_argument("--label_smoothing", type=float, default=0.1)
     ap.add_argument("--use_randaug", action="store_true")
@@ -354,7 +367,7 @@ def main():
     torch.set_float32_matmul_precision("high")
     print(f"Device: {device}")
 
-    ViT_Baseline, ViT_MoP = try_import_models()
+    ViT_Baseline, ViT_MoP, ViTEdgewise = try_import_models()
     train_loader, val_loader = get_loaders(
         args.data_root,
         batch=args.batch,
@@ -453,6 +466,36 @@ def main():
         print(
             f"MoP cfg     : {mop_cfg} + {{'n_views': {args.mop_views}, 'n_kernels': {args.mop_kernels}, **extra}} | params={mop_p:,} | within1%={within}"
         )
+        # Edgewise plan
+        ew_cfg = None
+        ew_p = None
+        ew_within = False
+        if "E" in args.models:
+            num_tokens = (int(args.img_size) // int(args.patch)) ** 2
+            ew_extra = {
+                **extra,
+                "beta_not": args.ew_beta_not,
+                "use_k3": args.ew_use_k3,
+                "n_views": int(args.ew_views),
+                "share_qkv": args.ew_share_qkv,
+                "mlp_ratio": float(args.ew_mlp_ratio),
+                "num_tokens": int(num_tokens),
+            }
+            ew_cfg, ew_p, ew_within = find_model_config_match_baseline(
+                ViTEdgewise,
+                n_classes=1000,
+                target_params=int(target),
+                baseline_cfg=base_cfg,
+                baseline_params=base_p,
+                max_ratio_diff=0.01,
+                dims_choices=(192, 224, 256, 320, 384, 448, 512, 640, 768, 1024, 1280),
+                depths_choices=(8, 10, 12, 16, 24, 32),
+                heads_choices=(4, 6, 8, 12, 16),
+                extra_kwargs=ew_extra,
+            )
+            print(
+                f"Edgewise cfg: {ew_cfg} + {{'n_views': {args.ew_views}, 'share_qkv': {args.ew_share_qkv}, 'use_k3': {args.ew_use_k3}, 'mlp_ratio': {args.ew_mlp_ratio}, **extra}} | params={ew_p:,} | within1%={ew_within}"
+            )
 
         # Accumulator
         accs: Dict[str, List[float]] = {k: [] for k in ["A"] + args.models}
@@ -470,6 +513,20 @@ def main():
                     **extra,
                     n_views=args.mop_views,
                     n_kernels=args.mop_kernels,
+                ).to(device)
+            if "E" in args.models and ew_cfg is not None:
+                num_tokens = (int(args.img_size) // int(args.patch)) ** 2
+                models["E"] = ViTEdgewise(
+                    n_classes=1000,
+                    **ew_cfg,
+                    beta_not=args.ew_beta_not,
+                    use_k3=bool(args.ew_use_k3),
+                    n_views=int(args.ew_views),
+                    share_qkv=args.ew_share_qkv,
+                    mlp_ratio=float(args.ew_mlp_ratio),
+                    patch=int(args.patch),
+                    num_tokens=int(num_tokens),
+                    drop_path=float(args.drop_path),
                 ).to(device)
 
             # Optional EMA models
@@ -497,6 +554,8 @@ def main():
             params_line = f"Params | A(base): {count_parameters(models['A']):,}"
             if "B" in models:
                 params_line += f" | B: {count_parameters(models['B']):,}"
+            if "E" in models:
+                params_line += f" | E: {count_parameters(models['E']):,}"
             print(params_line)
 
             # Opts
