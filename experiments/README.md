@@ -129,9 +129,11 @@ python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
 - Per-edge (i,j) gates predicted by a tiny conv head over channels
   `[S1, S2, S1ᵀ, S2ᵀ, log(C→+ε), log(C←+ε)]`. Produces `g_and, g_or, g_not, g_chain ∈ [0,1]^{T×T}`.
 - Includes value-aware chain transport `A1 @ (A2 @ V2)` mixed via a learnable sigmoid weight.
+ - Option: `--use_k3` to add a 3×3 conv stage in the gate head.
 
 ### `cifar100_edgewise_gates.py`
 - CIFAR-100 version of the edgewise-gated mixer.
+ - Option: `--use_k3` to add a 3×3 conv stage in the gate head.
 
 ### `cifar10_crossview_mixer.py`
 - Cross-view mixer attention:
@@ -168,6 +170,7 @@ python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
   - D: Multi-Hop
   - E: Edgewise-gated mixer
 - Choose via `--models` (e.g., `--models A B E`). Param matching keeps non-baselines at or under Baseline params and cfg.
+- Edgewise options: `--ew_beta_not`, `--ew_use_k3` (3×3 stage in the gate head).
 - Example:
 ```bash
 python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \

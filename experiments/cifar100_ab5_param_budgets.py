@@ -334,6 +334,9 @@ def main():
     ap.add_argument("--mh_gate_chain", type=float, default=1.0)
     # Edgewise
     ap.add_argument("--ew_beta_not", type=float, default=0.5)
+    ap.add_argument(
+        "--ew_use_k3", action="store_true", help="use 3x3 conv stage in edgewise head"
+    )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
     args = ap.parse_args()
 
@@ -430,7 +433,7 @@ def main():
                 baseline_cfg=base_cfg,
                 baseline_params=base_p,
                 max_ratio_diff=0.01,
-                extra_kwargs={"beta_not": args.ew_beta_not},
+                extra_kwargs={"beta_not": args.ew_beta_not, "use_k3": args.ew_use_k3},
             )[:2]
 
         print(f"Baseline cfg: {base_cfg} | params={base_p:,}")
@@ -494,7 +497,10 @@ def main():
             # E
             if "E" in args.models:
                 models["E"] = ViTEdgewise(
-                    n_classes=100, **cfgs["E"][0], beta_not=args.ew_beta_not
+                    n_classes=100,
+                    **cfgs["E"][0],
+                    beta_not=args.ew_beta_not,
+                    use_k3=args.ew_use_k3,
                 ).to(device)
 
             # Params line

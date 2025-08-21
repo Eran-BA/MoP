@@ -52,10 +52,13 @@ def lse(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 class EdgewiseGateHead(nn.Module):
-    def __init__(self, in_ch: int = 6, hidden: int = 16):
+    def __init__(self, in_ch: int = 6, hidden: int = 16, use_k3: bool = False):
         super().__init__()
         self.conv1 = nn.Conv2d(in_ch, hidden, kernel_size=1, bias=True)
         self.act = nn.GELU(approximate="tanh")
+        self.use_k3 = use_k3
+        if self.use_k3:
+            self.mid3 = nn.Conv2d(hidden, hidden, kernel_size=3, padding=1, bias=True)
         self.conv2 = nn.Conv2d(hidden, 4, kernel_size=1, bias=True)
         nn.init.constant_(self.conv2.bias, -5.0)
 
@@ -63,6 +66,8 @@ class EdgewiseGateHead(nn.Module):
         # feat: [B*H, C, T, T]
         x = self.conv1(feat)
         x = self.act(x)
+        if self.use_k3:
+            x = self.mid3(self.act(x))
         x = self.conv2(x)
         return torch.sigmoid(x)  # [B*H, 4, T, T]: g_and, g_or, g_not, g_chain
 
@@ -81,6 +86,7 @@ class EdgewiseMSA(nn.Module):
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
         beta_not: float = 0.5,
+        use_k3: bool = False,
     ):
         super().__init__()
         assert dim % heads == 0
@@ -94,7 +100,7 @@ class EdgewiseMSA(nn.Module):
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
 
-        self.edge_head = EdgewiseGateHead(in_ch=6, hidden=16)
+        self.edge_head = EdgewiseGateHead(in_ch=6, hidden=16, use_k3=use_k3)
         self.chain_value_logit = nn.Parameter(torch.tensor(-2.0))
 
     def forward(
@@ -182,10 +188,13 @@ class BlockEdgewise(nn.Module):
         attn_drop: float = 0.0,
         drop_path: float = 0.0,
         beta_not: float = 0.5,
+        use_k3: bool = False,
     ):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
-        self.attn = EdgewiseMSA(dim, heads, attn_drop, drop, beta_not=beta_not)
+        self.attn = EdgewiseMSA(
+            dim, heads, attn_drop, drop, beta_not=beta_not, use_k3=use_k3
+        )
         self.dp1 = DropPath(drop_path) if DropPath is not None else nn.Identity()
         self.ln2 = nn.LayerNorm(dim)
         self.mlp = MLP(dim, mlp_ratio, drop)
@@ -210,6 +219,7 @@ class ViTEdgewise(nn.Module):
         patch: int = 4,
         num_tokens: int = 64,
         beta_not: float = 0.5,
+        use_k3: bool = False,
     ):
         super().__init__()
         if PatchEmbed is None:
@@ -231,6 +241,7 @@ class ViTEdgewise(nn.Module):
                     0.0,
                     dps[i],
                     beta_not=beta_not,
+                    use_k3=use_k3,
                 )
                 for i in range(depth)
             ]
