@@ -193,6 +193,64 @@ python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 
   --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
 ```
 
+### `imagenet_ab_param_budgets.py`
+- ImageNet A/B/E: Param-matched Baseline vs MoP vs Edgewise at standard ViT scales. Includes strong augmentation (RandAug, Mixup/CutMix, Random Erasing), label smoothing, DropPath, grad clipping, and EMA.
+- Key args (subset):
+  - Matching: `--targets` (e.g., 86000000, 307000000, 632000000)
+  - Image/patch: `--img_size`, `--patch`
+  - Regularization: `--use_randaug`, `--randaug_n`, `--randaug_m`, `--random_erasing`, `--label_smoothing`, `--drop_path`, `--grad_clip`, `--ema`, `--ema_decay`
+  - MoP: `--mop_views`, `--mop_kernels`
+  - Edgewise: `--ew_views`, `--ew_use_k3`, `--ew_share_qkv`, `--ew_mlp_ratio`
+- Examples (adjust `--batch` to your hardware):
+```bash
+# ViT-B/16 (~86M) and ViT-L/16 (~307M) with A/B/E
+python experiments/imagenet_ab_param_budgets.py \
+  --data_root /path/to/imagenet \
+  --targets 86000000 307000000 \
+  --models A B E \
+  --img_size 224 --patch 16 \
+  --steps 90000 --eval_every 1000 --batch 256 \
+  --lr_large 0.001 --warmup_frac 0.1 --weight_decay 0.1 \
+  --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
+  --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
+  --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+
+# ViT-H/14 (~632M) with A/B/E
+python experiments/imagenet_ab_param_budgets.py \
+  --data_root /path/to/imagenet \
+  --targets 632000000 \
+  --models A B E \
+  --img_size 224 --patch 14 \
+  --steps 90000 --eval_every 1000 --batch 256 \
+  --lr_large 0.001 --warmup_frac 0.1 --weight_decay 0.1 \
+  --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
+  --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
+  --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+```
+
+### `ab5_tournament.py`
+- Tournament-style A/B/C/D/E over 5 seeds (CIFAR-100 by default). Also supports plan-only mode for 1B+ sizing without training.
+- Example (5M, five seeds):
+```bash
+python experiments/ab5_tournament.py --targets 5000000 --models A B C D E \
+  --steps 1000 --eval_every 100 --batch 64 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
+  --xview_enable_prior --xview_prior_weight 0.5 \
+  --xview_anchor_mode argmax_row_sum \
+  --mh_hops 3 --mh_gate_chain 1.0
+```
+
+### `ab5_paper_benchmark.py`
+- Aggregates CSVs from CIFAR and ImageNet experiments to produce publication-ready Markdown and LaTeX tables.
+- Example:
+```bash
+python experiments/ab5_paper_benchmark.py
+# writes results/paper_benchmark/ab5_benchmark.md and .tex
+```
+
 ### Multi-Head Attention variants (developer note)
 - All A/B/C/D/E correspond to multi-head attention variants. For direct usage in code, see `mop.models.UnifiedMSA` which supports modes:
   - `A` (baseline), `B` (MoP-compatible baseline), `C` (Cross-View), `D` (Multi-Hop), `E` (Edgewise).

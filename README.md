@@ -432,6 +432,41 @@ Colab-friendly examples. Use a smaller `--batch` if you hit OOM on MPS/Colab.
   --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
 ```
 
+### ImageNet A/B/E (param-matched, paper-style aug)
+```bash
+# ViT-B/16 (~86M) and ViT-L/16 (~307M)
+python experiments/imagenet_ab_param_budgets.py \
+  --data_root /path/to/imagenet \
+  --targets 86000000 307000000 \
+  --models A B E \
+  --img_size 224 --patch 16 \
+  --steps 90000 --eval_every 1000 --batch 256 \
+  --lr_large 0.001 --warmup_frac 0.1 --weight_decay 0.1 \
+  --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
+  --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
+  --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+
+# ViT-H/14 (~632M)
+python experiments/imagenet_ab_param_budgets.py \
+  --data_root /path/to/imagenet \
+  --targets 632000000 \
+  --models A B E \
+  --img_size 224 --patch 14 \
+  --steps 90000 --eval_every 1000 --batch 256 \
+  --lr_large 0.001 --warmup_frac 0.1 --weight_decay 0.1 \
+  --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
+  --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
+  --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+```
+
+### Paper tables
+```bash
+python experiments/ab5_paper_benchmark.py
+# writes results/paper_benchmark/ab5_benchmark.md and .tex
+```
+
 #### Developer: Unified Multi-Head Attention
 Use `mop.models.UnifiedMSA` to instantiate attention variants directly inside a block:
 ```python
