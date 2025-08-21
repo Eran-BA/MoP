@@ -35,3 +35,6 @@ seed 0: base=0.3117  mop=0.3404  xview=0.3251  multihop=0.2586
 🔬 Seed 1
 Params | base: 4,872,000 | mop: 3,667,956 | xview: 4,569,176 | multihop: 4,569,158
 step    1 | Lb=4.657 Lm=4.691 Lx=4.682 Lh=4.644 | Ab=0.013 Am=0.011 Ax=0.007 Ah=0.009
+step  100 | Lb=3.982 Lm=3.916 Lx=3.991 Lh=3.911 | Ab=0.074 Am=0.076 Ax=0.077 Ah=0.080
+step  200 | Lb=3.762 Lm=3.730 Lx=3.743 Lh=3.800 | Ab=0.107 Am=0.122 Ax=0.104 Ah=0.107
+step  300 | Lb=3.607 Lm=3.581 Lx=3.614 Lh=3.645 | Ab=0.140 Am=0.136 Ax=0.133 Ah=0.135

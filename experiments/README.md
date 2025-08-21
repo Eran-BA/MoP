@@ -160,6 +160,22 @@ python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
   - Cross-View: `--xview_transpose`, `--xview_t1`, `--xview_t2`, `--xview_enable_prior`, `--xview_prior_weight`, `--xview_anchor_mode`, `--xview_k_star`
   - Multi-Hop: `--mh_hops`, `--mh_beta_not`, multi-hop gates `--mh_gate_*`
 
+### `cifar100_ab5_param_budgets.py`
+- A/B/C/D/E with selectable models (flags):
+  - A: Baseline
+  - B: MoP
+  - C: Cross-View Mixer
+  - D: Multi-Hop
+  - E: Edgewise-gated mixer
+- Choose via `--models` (e.g., `--models A B E`). Param matching keeps non-baselines at or under Baseline params and cfg.
+- Example:
+```bash
+python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \
+  --models A B C D E \
+  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
+  --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
+```
+
 ## Results
 
 - Each script writes CSV summaries under `results/` subdirectories (e.g., `results/cifar10_ab_param_budgets/`).
