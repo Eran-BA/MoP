@@ -127,6 +127,7 @@ def main():
         default=[
             "results/ab5_tournament",
             "results/cifar100_ab5_param_budgets",
+            "results/imagenet_ab_param_budgets",
         ],
     )
     ap.add_argument(
@@ -136,6 +137,7 @@ def main():
         default=[
             "tournament_target_*.csv",
             "cifar100_ab5_target_*.csv",
+            "imagenet_ab_target_*.csv",
         ],
     )
     ap.add_argument("--out_dir", type=str, default="results/paper_benchmark")
