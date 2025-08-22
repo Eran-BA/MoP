@@ -203,20 +203,10 @@ def find_model_config_match_baseline(
     baseline_cfg: Dict[str, int],
     baseline_params: int,
     max_ratio_diff: float = 0.01,
-    dims_choices: Iterable[int] = (
-        128,
-        160,
-        192,
-        224,
-        256,
-        320,
-        384,
-        448,
-        512,
-        640,
-        768,
-    ),
-    depths_choices: Iterable[int] = (6, 8, 10, 12),
+    # Finer dim grid enables tight fitting while keeping structure <= baseline
+    dims_choices: Iterable[int] = tuple(range(64, 2049, 8)),
+    # Allow intermediate depths to keep structure close to baseline
+    depths_choices: Iterable[int] = (6, 8, 9, 10, 11, 12),
     heads_choices: Iterable[int] = (4, 6, 8),
     extra_kwargs: Optional[Dict] = None,
 ) -> Tuple[Dict[str, int], int, bool]:
@@ -224,16 +214,18 @@ def find_model_config_match_baseline(
     base_depth = baseline_cfg["depth"]
     base_heads = baseline_cfg["heads"]
 
-    dims = [d for d in dims_choices if d <= base_dim]
+    # Restrict candidate grid to be <= baseline values
+    dims = [d for d in dims_choices if 0 < d <= base_dim]
     if base_dim not in dims:
         dims.append(base_dim)
-    depths = [d for d in depths_choices if d <= base_depth]
+    depths = [d for d in depths_choices if 0 < d <= base_depth]
     if base_depth not in depths:
         depths.append(base_depth)
-    heads_list = [h for h in heads_choices if h <= base_heads]
+    heads_list = [h for h in heads_choices if 0 < h <= base_heads]
     if base_heads not in heads_list:
         heads_list.append(base_heads)
 
+    # Prefer identical structure if it already fits under baseline budget
     try:
         p_same = estimate_params(
             ctor, n_classes, base_dim, base_depth, base_heads, extra_kwargs
@@ -250,15 +242,16 @@ def find_model_config_match_baseline(
 
     best_within = None
     best_within_params = None
-    best_within_target_diff = None
+    best_within_score = None  # tie-breaker score
     best_under = None
     best_under_params = None
-    best_under_target_diff = None
+    best_under_score = None
+
     for heads in sorted(set(heads_list)):
-        for dim in sorted(set(dims)):
-            if dim % heads != 0:
-                continue
-            for depth in sorted(set(depths)):
+        for depth in sorted(set(depths)):
+            for dim in sorted(set(dims)):
+                if dim % heads != 0:
+                    continue
                 try:
                     p = estimate_params(
                         ctor, n_classes, dim, depth, heads, extra_kwargs
@@ -269,15 +262,29 @@ def find_model_config_match_baseline(
                     continue
                 rel_gap = abs(baseline_params - p) / max(1, baseline_params)
                 target_diff = abs(int(target_params) - p)
+                # keep structure as close to baseline as possible (prefer same heads, depth, and minimal dim change)
+                struct_penalty = (
+                    10000 * abs(base_heads - heads)
+                    + 1000 * abs(base_depth - depth)
+                    + abs(base_dim - dim)
+                )
+                # Prefer within-ratio fits first, then nearest to target, then closest structure
+                score = (
+                    (0 if rel_gap <= max_ratio_diff else 1) * 10**12
+                    + target_diff * 10**3
+                    + struct_penalty
+                )
+
                 if rel_gap <= max_ratio_diff:
-                    if best_within is None or target_diff < best_within_target_diff:
+                    if best_within is None or score < best_within_score:
                         best_within = {"dim": dim, "depth": depth, "heads": heads}
                         best_within_params = p
-                        best_within_target_diff = target_diff
-                if best_under is None or target_diff < best_under_target_diff:
+                        best_within_score = score
+                if best_under is None or score < best_under_score:
                     best_under = {"dim": dim, "depth": depth, "heads": heads}
                     best_under_params = p
-                    best_under_target_diff = target_diff
+                    best_under_score = score
+
     if best_within is not None:
         return best_within, int(best_within_params), True
     if best_under is not None:
