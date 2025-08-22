@@ -101,8 +101,12 @@ def try_import_models():
 
 
 def get_loaders(
-    batch: int = 256, tiny: bool = False, workers: int = 2
-) -> Tuple[DataLoader, DataLoader]:
+    batch: int = 256,
+    tiny: bool = False,
+    workers: int = 2,
+    val_frac: float = 0.1,
+    val_seed: int = 0,
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
     tfm_train = transforms.Compose(
         [
             transforms.RandomCrop(32, padding=4),
@@ -117,18 +121,41 @@ def get_loaders(
             transforms.Normalize(CIFAR100_MEAN, CIFAR100_STD),
         ]
     )
-    train = datasets.CIFAR100("./data", train=True, download=True, transform=tfm_train)
+    # Build two copies of training set with different transforms, so val does not get train-time augmentations
+    train_full_aug = datasets.CIFAR100(
+        "./data", train=True, download=True, transform=tfm_train
+    )
+    train_full_eval = datasets.CIFAR100(
+        "./data", train=True, download=False, transform=tfm_test
+    )
     test = datasets.CIFAR100("./data", train=False, download=True, transform=tfm_test)
+
+    # Deterministic split of train into train/val
+    num_train = len(train_full_aug)
+    n_val = int(max(1, min(num_train - 1, round(float(val_frac) * num_train))))
+    rng = np.random.RandomState(int(val_seed))
+    idx = rng.permutation(num_train)
+    val_idx = idx[:n_val]
+    train_idx = idx[n_val:]
+
+    train = torch.utils.data.Subset(train_full_aug, train_idx)
+    val = torch.utils.data.Subset(train_full_eval, val_idx)
+
     if tiny:
-        train = torch.utils.data.Subset(train, range(5000))
+        train = torch.utils.data.Subset(train, range(min(5000, len(train_idx))))
+        val = torch.utils.data.Subset(val, range(min(1000, len(val_idx))))
         test = torch.utils.data.Subset(test, range(1000))
+
     train_loader = DataLoader(
         train, batch_size=batch, shuffle=True, num_workers=workers, pin_memory=False
+    )
+    val_loader = DataLoader(
+        val, batch_size=batch, shuffle=False, num_workers=workers, pin_memory=False
     )
     test_loader = DataLoader(
         test, batch_size=batch, shuffle=False, num_workers=workers, pin_memory=False
     )
-    return train_loader, test_loader
+    return train_loader, val_loader, test_loader
 
 
 @torch.no_grad()
@@ -322,6 +349,13 @@ def main():
     )
     ap.add_argument("--eval_every", type=int, default=250)
     ap.add_argument("--tiny", action="store_true")
+    ap.add_argument(
+        "--val_frac",
+        type=float,
+        default=0.1,
+        help="fraction of CIFAR-100 train to use as validation",
+    )
+    ap.add_argument("--val_seed", type=int, default=0, help="seed for train/val split")
     ap.add_argument("--targets", type=int, nargs="+", default=[5_000_000, 50_000_000])
     # Model selection
     ap.add_argument(
@@ -383,7 +417,13 @@ def main():
     print(f"Device: {device}")
 
     ViT_Baseline, ViT_MoP, ViTCrossView, ViTMultiHop, ViTEdgewise = try_import_models()
-    train_loader, val_loader = get_loaders(args.batch, tiny=args.tiny, workers=2)
+    train_loader, val_loader, test_loader = get_loaders(
+        args.batch,
+        tiny=args.tiny,
+        workers=2,
+        val_frac=float(args.val_frac),
+        val_seed=int(args.val_seed),
+    )
 
     def make_opt(m: nn.Module, lr_value: float):
         opt = optim.AdamW(m.parameters(), lr=lr_value, weight_decay=args.weight_decay)
@@ -682,11 +722,20 @@ def main():
                     acc_str = " ".join([f"A{key}={acc:.3f}" for key, acc in acc_report])
                     print(f"step {steps:4d} | {loss_str} | {acc_str}")
 
-            # final eval per seed
+            # final eval per seed (on validation set)
             for key, m in models.items():
                 a = evaluate(m, val_loader, device)
                 accs[key].append(a)
             print("seed", s, " " + " ".join([f"{k}={accs[k][-1]:.4f}" for k in accs]))
+
+        # After all seeds, also evaluate best (last) checkpoint models on test set per model
+        # Note: for simplicity we re-instantiate models from last-seed weights already in memory
+        print("\n📏 Test-set evaluation (last seed models):")
+        test_acc_report = []
+        for key, m in models.items():
+            a_test = evaluate(m, test_loader, device)
+            test_acc_report.append((key, a_test))
+        print(" ".join([f"T{key}={acc:.4f}" for key, acc in test_acc_report]))
 
         # Save CSV per target
         csv_path = os.path.join(args.out, f"cifar100_ab5_target_{int(target)}.csv")
