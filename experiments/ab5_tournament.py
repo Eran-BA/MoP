@@ -277,6 +277,15 @@ def main():
             plans["E"] = {"dim": 640, "depth": 16, "heads": 10}
         return plans
 
+    # Use param-matching helpers from CIFAR ab5 runner so tournament hits the requested budget
+    try:
+        from cifar100_ab5_param_budgets import (
+            find_config_for_target, find_model_config_match_baseline)
+    except Exception as e:
+        raise ImportError(
+            f"Param-matching helpers not available: {e}. Ensure 'experiments/cifar100_ab5_param_budgets.py' exists."
+        )
+
     for target in args.targets:
         print(f"\n🎯 Tournament target parameters: {int(target):,}")
         lr_current = (
@@ -297,6 +306,76 @@ def main():
                     f.write(f"{k}: {plan.get(k, {})}\n")
             continue
 
+        # Compute param-matched baseline and per-model configs for this target
+        base_cfg, base_p = find_config_for_target(
+            ViT_Baseline, n_classes=100, target_params=int(target)
+        )
+
+        cfgs: Dict[str, Tuple[Dict[str, int], int]] = {}
+        if "B" in args.models:
+            cfgs["B"] = find_model_config_match_baseline(
+                ViT_MoP,
+                n_classes=100,
+                target_params=int(target),
+                baseline_cfg=base_cfg,
+                baseline_params=base_p,
+                max_ratio_diff=0.01,
+                extra_kwargs={"n_views": args.mop_views, "n_kernels": args.mop_kernels},
+            )[:2]
+        if "E" in args.models:
+            # Ladder similar to ab5 to help E fit under baseline
+            ew_cfg = None
+            ew_p = None
+            try_views = list(range(int(args.ew_views), 1, -1))
+            mlp_order = [args.ew_mlp_ratio, 4.0, 3.0, 2.0, 1.5, 1.0]
+            seen = set()
+            mlp_try: List[float] = []
+            for r in mlp_order:
+                if r > 0 and r not in seen:
+                    mlp_try.append(r)
+                    seen.add(r)
+            use_k3_try = (
+                [bool(args.ew_use_k3), False] if args.ew_use_k3 else [False, True]
+            )
+            done = False
+            for v in try_views:
+                if done:
+                    break
+                for r in mlp_try:
+                    if done:
+                        break
+                    for use_k3_flag in use_k3_try:
+                        try:
+                            xkwargs = {
+                                "beta_not": args.ew_beta_not,
+                                "use_k3": bool(use_k3_flag),
+                                "n_views": int(v),
+                                "share_qkv": args.ew_share_qkv,
+                                "mlp_ratio": float(r),
+                            }
+                            cfg_e, p_e, _within = find_model_config_match_baseline(
+                                ViTEdgewise,
+                                n_classes=100,
+                                target_params=int(target),
+                                baseline_cfg=base_cfg,
+                                baseline_params=base_p,
+                                max_ratio_diff=0.01,
+                                extra_kwargs=xkwargs,
+                            )
+                            ew_cfg, ew_p = cfg_e, p_e
+                            ew_cfg["_ew_views"] = int(v)
+                            ew_cfg["_ew_mlp_ratio"] = float(r)
+                            ew_cfg["_ew_use_k3"] = bool(use_k3_flag)
+                            done = True
+                            break
+                        except Exception:
+                            continue
+            if ew_cfg is None:
+                raise RuntimeError(
+                    "Edgewise (E) could not fit under baseline in tournament. Try reducing --ew_views."
+                )
+            cfgs["E"] = (ew_cfg, ew_p)
+
         # Models dict per seed
         accs: Dict[str, List[float]] = {k: [] for k in ["A"] + args.models}
 
@@ -304,25 +383,14 @@ def main():
             print(f"\n🔬 Seed {s}")
             set_seed(s)
 
-            # For tournament simplicity at small budgets, reuse a common baseline config per target
-            # based on CIFAR-100 32x32 scale (follow existing ab5 behavior at 5M/50M)
-            # We aim for stable defaults that fit memory; exact param parity is handled inside the model variants when possible.
-            dim = 320 if target <= 5_000_000 else 640
-            depth = 8 if target <= 5_000_000 else 10
-            heads = 4 if target <= 5_000_000 else 8
-
             models: Dict[str, nn.Module] = {}
-            # A
-            models["A"] = ViT_Baseline(
-                n_classes=100, dim=dim, depth=depth, heads=heads
-            ).to(device)
+            # A (param-matched)
+            models["A"] = ViT_Baseline(n_classes=100, **base_cfg).to(device)
             # B
             if "B" in args.models:
                 models["B"] = ViT_MoP(
                     n_classes=100,
-                    dim=dim,
-                    depth=depth,
-                    heads=heads,
+                    **cfgs["B"][0],
                     n_views=args.mop_views,
                     n_kernels=args.mop_kernels,
                 ).to(device)
@@ -354,18 +422,21 @@ def main():
                     beta_not=args.mh_beta_not,
                     hops=args.mh_hops,
                 ).to(device)
-            # E (Edgewise) with deterministic extras
+            # E (Edgewise) param-matched with extras
             if "E" in args.models:
+                cfg_e = cfgs["E"][0]
+                chosen_ew_views = cfg_e.get("_ew_views", args.ew_views)
+                chosen_ew_mlp = cfg_e.get("_ew_mlp_ratio", args.ew_mlp_ratio)
+                chosen_ew_k3 = cfg_e.get("_ew_use_k3", args.ew_use_k3)
+                base_kwargs = {k: v for k, v in cfg_e.items() if not k.startswith("_")}
                 models["E"] = ViTEdgewise(
                     n_classes=100,
-                    dim=dim,
-                    depth=depth,
-                    heads=heads,
+                    **base_kwargs,
                     beta_not=args.ew_beta_not,
-                    use_k3=bool(args.ew_use_k3),
-                    n_views=int(args.ew_views),
+                    use_k3=bool(chosen_ew_k3),
+                    n_views=int(chosen_ew_views),
                     share_qkv=args.ew_share_qkv,
-                    mlp_ratio=float(args.ew_mlp_ratio),
+                    mlp_ratio=float(chosen_ew_mlp),
                 ).to(device)
 
             # Report params
