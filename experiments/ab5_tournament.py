@@ -4,12 +4,16 @@ import os
 import sys
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import matplotlib
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 # Make project and experiments importable
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -221,6 +225,7 @@ def main():
         help="Do not train; print per-model planned configs and exit.",
     )
     ap.add_argument("--out", type=str, default="results/ab5_tournament")
+    ap.add_argument("--plot", action="store_true")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -455,6 +460,21 @@ def main():
             )
         )
         print(f"Results saved to: {csv_path}")
+
+        if args.plot:
+            # Simple bar of mean val acc per model
+            labels = list(accs.keys())
+            means = [float(np.mean(accs[k])) for k in labels]
+            plt.figure(figsize=(6, 4))
+            plt.bar(labels, means)
+            plt.ylim(0, 1)
+            plt.ylabel("Val Accuracy (mean over seeds)")
+            plt.title(f"Tournament CIFAR-100 @ {int(target):,}")
+            os.makedirs(args.out, exist_ok=True)
+            out_path = os.path.join(args.out, f"tournament_{int(target)}_val_bar.png")
+            plt.tight_layout()
+            plt.savefig(out_path)
+            plt.close()
 
 
 if __name__ == "__main__":

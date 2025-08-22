@@ -5,12 +5,16 @@ import random
 import sys
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import matplotlib
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 # Add project root and experiments dir to Python path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -409,6 +413,9 @@ def main():
         "--debug_budget", action="store_true", help="print extra budget search logs"
     )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
+    ap.add_argument(
+        "--plot", action="store_true", help="save learning-curve and test plots"
+    )
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -606,6 +613,10 @@ def main():
         accs: Dict[str, List[float]] = {
             k: [] for k in ["A", "B", "C", "D", "E"] if k in (["A"] + args.models)
         }
+        # Learning curves for last seed (validation)
+        last_seed_hist: Dict[str, Dict[str, List[float]]] = {
+            k: {"steps": [], "acc": []} for k in ["A"] + args.models
+        }
 
         for s in args.seeds:
             print(f"\n🔬 Seed {s}")
@@ -716,6 +727,10 @@ def main():
                     for key, m in models.items():
                         acc = evaluate(m, val_loader, device)
                         acc_report.append((key, acc))
+                        if s == args.seeds[-1]:
+                            last_seed_hist.setdefault(key, {"steps": [], "acc": []})
+                            last_seed_hist[key]["steps"].append(steps)
+                            last_seed_hist[key]["acc"].append(acc)
                     loss_str = " ".join(
                         [f"L{key}={losses[key].item():.3f}" for key in losses]
                     )
@@ -736,6 +751,45 @@ def main():
             a_test = evaluate(m, test_loader, device)
             test_acc_report.append((key, a_test))
         print(" ".join([f"T{key}={acc:.4f}" for key, acc in test_acc_report]))
+
+        # Save plots
+        if args.plot:
+            os.makedirs(args.out, exist_ok=True)
+            # Learning curves (validation) for last seed
+            plt.figure(figsize=(8, 5))
+            for key in last_seed_hist:
+                if len(last_seed_hist[key]["steps"]) > 0:
+                    plt.plot(
+                        last_seed_hist[key]["steps"],
+                        last_seed_hist[key]["acc"],
+                        label=key,
+                    )
+            plt.xlabel("Step")
+            plt.ylabel("Val Accuracy")
+            plt.title(f"CIFAR-100 A/B/C/D/E @ {int(target):,} params (last seed)")
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plot_path = os.path.join(
+                args.out, f"cifar100_ab5_target_{int(target)}_val_curve.png"
+            )
+            plt.tight_layout()
+            plt.savefig(plot_path)
+            plt.close()
+
+            # Test accuracy bar for last seed
+            labels = [k for k, _ in test_acc_report]
+            vals = [v for _, v in test_acc_report]
+            plt.figure(figsize=(6, 4))
+            plt.bar(labels, vals)
+            plt.ylim(0, 1)
+            plt.ylabel("Test Accuracy")
+            plt.title(f"CIFAR-100 Test Acc @ {int(target):,} params (last seed)")
+            bar_path = os.path.join(
+                args.out, f"cifar100_ab5_target_{int(target)}_test_bar.png"
+            )
+            plt.tight_layout()
+            plt.savefig(bar_path)
+            plt.close()
 
         # Save CSV per target
         csv_path = os.path.join(args.out, f"cifar100_ab5_target_{int(target)}.csv")
