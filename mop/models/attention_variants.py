@@ -490,6 +490,9 @@ class UnifiedMSA(nn.Module):
                 use_k3=kwargs.get("use_k3", False),
                 n_views=kwargs.get("n_views", 2),
                 share_qkv=kwargs.get("share_qkv", False),
+                gate_mode=kwargs.get("gate_mode", "dense"),
+                gate_rank=kwargs.get("gate_rank", 4),
+                gate_init=kwargs.get("gate_init", "neutral"),
             )
         else:
             raise ValueError(f"Unknown attention mode: {mode}")
