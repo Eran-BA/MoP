@@ -425,6 +425,13 @@ def main():
         help="Preset gate initialization bias",
     )
     ap.add_argument(
+        "--ew_variants",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Run multiple Edgewise variants in the same run; items like 'dense:and' or 'lowrank:xor'",
+    )
+    ap.add_argument(
         "--debug_budget", action="store_true", help="print extra budget search logs"
     )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
@@ -627,13 +634,34 @@ def main():
         if "E" in cfgs:
             print(f"Edgewise cfg: {cfgs['E'][0]} | params={cfgs['E'][1]:,}")
 
-        # Accumulator
-        accs: Dict[str, List[float]] = {
-            k: [] for k in ["A", "B", "C", "D", "E"] if k in (["A"] + args.models)
-        }
+        # Determine model keys including optional multiple E variants
+        model_keys: List[str] = ["A"]
+        if "B" in args.models:
+            model_keys.append("B")
+        if "C" in args.models:
+            model_keys.append("C")
+        if "D" in args.models:
+            model_keys.append("D")
+        e_variant_specs: Optional[List[Tuple[str, str]]] = None
+        if "E" in args.models:
+            if args.ew_variants:
+                e_variant_specs = []
+                for spec in args.ew_variants:
+                    if ":" not in spec:
+                        raise SystemExit(
+                            f"Invalid --ew_variants item '{spec}'. Use 'mode:init', e.g., 'lowrank:xor'"
+                        )
+                    mode, init = spec.split(":", 1)
+                    model_keys.append(f"E_{mode}_{init}")
+                    e_variant_specs.append((mode, init))
+            else:
+                model_keys.append("E")
+
+        # Accumulators
+        accs: Dict[str, List[float]] = {k: [] for k in model_keys}
         # Learning curves for last seed (validation)
         last_seed_hist: Dict[str, Dict[str, List[float]]] = {
-            k: {"steps": [], "acc": []} for k in ["A"] + args.models
+            k: {"steps": [], "acc": []} for k in model_keys
         }
 
         for s in args.seeds:
@@ -677,30 +705,46 @@ def main():
                 models["D"] = ViTMultiHop(n_classes=100, **cfgs["D"][0], **mh_extra).to(
                     device
                 )
-            # E
+            # E (single or multiple variants)
             if "E" in args.models:
                 cfg_e = cfgs["E"][0]
                 chosen_ew_views = cfg_e.get("_ew_views", args.ew_views)
                 chosen_ew_mlp = cfg_e.get("_ew_mlp_ratio", args.ew_mlp_ratio)
                 chosen_ew_k3 = cfg_e.get("_ew_use_k3", args.ew_use_k3)
                 base_kwargs = {k: v for k, v in cfg_e.items() if not k.startswith("_")}
-                models["E"] = ViTEdgewise(
-                    n_classes=100,
-                    **base_kwargs,
-                    beta_not=args.ew_beta_not,
-                    use_k3=bool(chosen_ew_k3),
-                    n_views=int(chosen_ew_views),
-                    share_qkv=args.ew_share_qkv,
-                    mlp_ratio=float(chosen_ew_mlp),
-                    gate_mode=args.ew_gate_mode,
-                    gate_rank=int(args.ew_gate_rank),
-                    gate_init=str(args.ew_gate_init),
-                ).to(device)
+                if e_variant_specs is None:
+                    models["E"] = ViTEdgewise(
+                        n_classes=100,
+                        **base_kwargs,
+                        beta_not=args.ew_beta_not,
+                        use_k3=bool(chosen_ew_k3),
+                        n_views=int(chosen_ew_views),
+                        share_qkv=args.ew_share_qkv,
+                        mlp_ratio=float(chosen_ew_mlp),
+                        gate_mode=args.ew_gate_mode,
+                        gate_rank=int(args.ew_gate_rank),
+                        gate_init=str(args.ew_gate_init),
+                    ).to(device)
+                else:
+                    for mode, init in e_variant_specs:
+                        key = f"E_{mode}_{init}"
+                        models[key] = ViTEdgewise(
+                            n_classes=100,
+                            **base_kwargs,
+                            beta_not=args.ew_beta_not,
+                            use_k3=bool(chosen_ew_k3),
+                            n_views=int(chosen_ew_views),
+                            share_qkv=args.ew_share_qkv,
+                            mlp_ratio=float(chosen_ew_mlp),
+                            gate_mode=str(mode),
+                            gate_rank=int(args.ew_gate_rank),
+                            gate_init=str(init),
+                        ).to(device)
 
             # Params line
             params_line = f"Params | A(base): {count_parameters(models['A']):,}"
-            for key in ["B", "C", "D", "E"]:
-                if key in models:
+            for key in accs.keys():
+                if key != "A" and key in models:
                     params_line += f" | {key}: {count_parameters(models[key]):,}"
             print(params_line)
 
@@ -710,7 +754,7 @@ def main():
             )
             for key, m in models.items():
                 lr_for_model = lr_current
-                if key == "E":
+                if key == "E" or key.startswith("E_"):
                     if args.lr_e is not None and args.lr_e > 0:
                         lr_for_model = float(args.lr_e)
                     else:
@@ -814,7 +858,7 @@ def main():
 
         # Save CSV per target
         csv_path = os.path.join(args.out, f"cifar100_ab5_target_{int(target)}.csv")
-        enabled = ["A"] + args.models
+        enabled = list(accs.keys())
         headers = ["seed"] + [f"acc_{k}" for k in enabled]
         with open(csv_path, "w") as f:
             f.write(",".join(headers) + "\n")
