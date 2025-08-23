@@ -365,6 +365,13 @@ def main():
     ap.add_argument("--ew_views", type=int, default=5)
     ap.add_argument("--ew_share_qkv", action="store_true")
     ap.add_argument("--ew_mlp_ratio", type=float, default=4.0)
+    ap.add_argument(
+        "--ew_variants",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Run multiple Edgewise variants in one run; items like 'dense:and' or 'lowrank:mix5'",
+    )
     ap.add_argument("--ew_gate_mode", type=str, default="dense", choices=["dense", "lowrank"])  # noqa: E501
     ap.add_argument("--ew_gate_rank", type=int, default=4)
     ap.add_argument(
@@ -533,8 +540,27 @@ def main():
                 f"Edgewise cfg: {ew_cfg} + {{'n_views': {args.ew_views}, 'share_qkv': {args.ew_share_qkv}, 'use_k3': {args.ew_use_k3}, 'mlp_ratio': {args.ew_mlp_ratio}, **extra}} | params={ew_p:,} | within1%={ew_within}"
             )
 
+        # Determine model keys including optional multiple E variants
+        model_keys: List[str] = ["A"]
+        if "B" in args.models:
+            model_keys.append("B")
+        e_variant_specs: Optional[List[Tuple[str, str]]] = None
+        if "E" in args.models:
+            if args.ew_variants:
+                e_variant_specs = []
+                for spec in args.ew_variants:
+                    if ":" not in spec:
+                        raise SystemExit(
+                            f"Invalid --ew_variants item '{spec}'. Use 'mode:init', e.g., 'lowrank:mix5'"
+                        )
+                    mode, init = spec.split(":", 1)
+                    model_keys.append(f"E_{mode}_{init}")
+                    e_variant_specs.append((mode, init))
+            else:
+                model_keys.append("E")
+
         # Accumulator
-        accs: Dict[str, List[float]] = {k: [] for k in ["A"] + args.models}
+        accs: Dict[str, List[float]] = {k: [] for k in model_keys}
 
         for s in args.seeds:
             print(f"\n🔬 Seed {s}")
@@ -552,21 +578,40 @@ def main():
                 ).to(device)
             if "E" in args.models and ew_cfg is not None:
                 num_tokens = (int(args.img_size) // int(args.patch)) ** 2
-                models["E"] = ViTEdgewise(
-                    n_classes=1000,
-                    **ew_cfg,
-                    beta_not=args.ew_beta_not,
-                    use_k3=bool(args.ew_use_k3),
-                    n_views=int(args.ew_views),
-                    share_qkv=args.ew_share_qkv,
-                    mlp_ratio=float(args.ew_mlp_ratio),
-                    patch=int(args.patch),
-                    num_tokens=int(num_tokens),
-                    drop_path=float(args.drop_path),
-                    gate_mode=args.ew_gate_mode,
-                    gate_rank=int(args.ew_gate_rank),
-                    gate_init=str(args.ew_gate_init),
-                ).to(device)
+                if e_variant_specs is None:
+                    models["E"] = ViTEdgewise(
+                        n_classes=1000,
+                        **ew_cfg,
+                        beta_not=args.ew_beta_not,
+                        use_k3=bool(args.ew_use_k3),
+                        n_views=int(args.ew_views),
+                        share_qkv=args.ew_share_qkv,
+                        mlp_ratio=float(args.ew_mlp_ratio),
+                        patch=int(args.patch),
+                        num_tokens=int(num_tokens),
+                        drop_path=float(args.drop_path),
+                        gate_mode=args.ew_gate_mode,
+                        gate_rank=int(args.ew_gate_rank),
+                        gate_init=str(args.ew_gate_init),
+                    ).to(device)
+                else:
+                    for mode, init in e_variant_specs:
+                        key = f"E_{mode}_{init}"
+                        models[key] = ViTEdgewise(
+                            n_classes=1000,
+                            **ew_cfg,
+                            beta_not=args.ew_beta_not,
+                            use_k3=bool(args.ew_use_k3),
+                            n_views=int(args.ew_views),
+                            share_qkv=args.ew_share_qkv,
+                            mlp_ratio=float(args.ew_mlp_ratio),
+                            patch=int(args.patch),
+                            num_tokens=int(num_tokens),
+                            drop_path=float(args.drop_path),
+                            gate_mode=str(mode),
+                            gate_rank=int(args.ew_gate_rank),
+                            gate_init=str(init),
+                        ).to(device)
 
             # Optional EMA models
             models_ema: Optional[Dict[str, nn.Module]] = None
@@ -591,10 +636,9 @@ def main():
 
             # Params line
             params_line = f"Params | A(base): {count_parameters(models['A']):,}"
-            if "B" in models:
-                params_line += f" | B: {count_parameters(models['B']):,}"
-            if "E" in models:
-                params_line += f" | E: {count_parameters(models['E']):,}"
+            for k in model_keys:
+                if k != "A" and k in models:
+                    params_line += f" | {k}: {count_parameters(models[k]):,}"
             print(params_line)
 
             # Opts
@@ -693,7 +737,7 @@ def main():
 
         # Save CSV per target (per-seed val)
         csv_path = os.path.join(args.out, f"imagenet_ab_target_{int(target)}.csv")
-        enabled = ["A"] + args.models
+        enabled = model_keys
         headers = ["seed"] + [f"acc_{k}" for k in enabled]
         with open(csv_path, "w") as f:
             f.write(",".join(headers) + "\n")
