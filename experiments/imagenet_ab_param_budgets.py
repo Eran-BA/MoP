@@ -93,7 +93,9 @@ def get_loaders(
     randaug_n: int = 2,
     randaug_m: int = 9,
     random_erasing: float = 0.0,
-) -> Tuple[DataLoader, DataLoader]:
+    test_frac: float = 0.0,
+    val_seed: int = 0,
+) -> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
     train_transforms: List[transforms.Transform] = [
         transforms.RandomResizedCrop(img_size, scale=(0.08, 1.0), ratio=(3 / 4, 4 / 3)),
         transforms.RandomHorizontalFlip(),
@@ -132,17 +134,38 @@ def get_loaders(
         )
 
     train = datasets.ImageFolder(train_dir, transform=train_tf)
-    val = datasets.ImageFolder(val_dir, transform=val_tf)
+    val_full = datasets.ImageFolder(val_dir, transform=val_tf)
+    # Optional split of official validation into val/test
+    test_loader: Optional[DataLoader] = None
+    if float(test_frac) and float(test_frac) > 0.0:
+        import numpy as _np
+        n = len(val_full)
+        n_test = int(max(1, min(n - 1, round(float(test_frac) * n))))
+        rng = _np.random.RandomState(int(val_seed))
+        idx = rng.permutation(n)
+        test_idx = idx[:n_test]
+        val_idx = idx[n_test:]
+        val = Subset(val_full, val_idx)
+        test = Subset(val_full, test_idx)
+    else:
+        val = val_full
+        test = None
     if tiny:
         train = Subset(train, range(50_000))
-        val = Subset(val, range(5_000))
+        val = Subset(val, range(min(5_000, len(val))))
+        if test is not None:
+            test = Subset(test, range(min(5_000, len(test))))
     train_loader = DataLoader(
         train, batch_size=batch, shuffle=True, num_workers=workers, pin_memory=True
     )
     val_loader = DataLoader(
         val, batch_size=batch, shuffle=False, num_workers=workers, pin_memory=True
     )
-    return train_loader, val_loader
+    if test is not None:
+        test_loader = DataLoader(
+            test, batch_size=batch, shuffle=False, num_workers=workers, pin_memory=True
+        )
+    return train_loader, val_loader, test_loader
 
 
 @torch.no_grad()
@@ -376,7 +399,7 @@ def main():
     print(f"Device: {device}")
 
     ViT_Baseline, ViT_MoP, ViTEdgewise = try_import_models()
-    train_loader, val_loader = get_loaders(
+    train_loader, val_loader, test_loader = get_loaders(
         args.data_root,
         batch=args.batch,
         tiny=args.tiny,
@@ -386,6 +409,8 @@ def main():
         randaug_n=args.randaug_n,
         randaug_m=args.randaug_m,
         random_erasing=args.random_erasing,
+        test_frac=0.2,
+        val_seed=args.seeds[0] if len(args.seeds) > 0 else 0,
     )
 
     def make_opt(m: nn.Module, lr_value: float):
@@ -666,7 +691,7 @@ def main():
                 accs[key].append(a)
             print("seed", s, " " + " ".join([f"{k}={accs[k][-1]:.4f}" for k in accs]))
 
-        # Save CSV per target
+        # Save CSV per target (per-seed val)
         csv_path = os.path.join(args.out, f"imagenet_ab_target_{int(target)}.csv")
         enabled = ["A"] + args.models
         headers = ["seed"] + [f"acc_{k}" for k in enabled]
@@ -677,6 +702,36 @@ def main():
                 for k in enabled:
                     row.append(f"{accs[k][i]:.4f}")
                 f.write(",".join(row) + "\n")
+        # Save validation summary (mean±std) CSV per target
+        summary_csv_path = os.path.join(
+            args.out, f"imagenet_ab_target_{int(target)}_val_summary.csv"
+        )
+        with open(summary_csv_path, "w") as f:
+            f.write("model,mean_val,std_val\n")
+            for k in enabled:
+                f.write(
+                    f"{k},{float(np.mean(accs[k])):.6f},{float(np.std(accs[k])):.6f}\n"
+                )
+        # Optional test-set evaluation (only if we created a split)
+        if test_loader is not None:
+            print("\n📏 Test-set evaluation (ImageNet split):")
+            test_acc_report = []
+            for key, seed_accs in accs.items():
+                # Reuse last trained model state per loop? Here we retrain per seed, so we eval the last seed models
+                pass
+            # Simpler: evaluate the current 'models' dict, which holds last-seed models
+            test_acc_report = []
+            for key, m in models.items():
+                a_test = evaluate(m, test_loader, device)
+                test_acc_report.append((key, a_test))
+            test_csv_path = os.path.join(
+                args.out, f"imagenet_ab_target_{int(target)}_test.csv"
+            )
+            with open(test_csv_path, "w") as f:
+                f.write("model,test_acc\n")
+                for key, acc in test_acc_report:
+                    f.write(f"{key},{acc:.6f}\n")
+            print(" ".join([f"T{key}={acc:.4f}" for key, acc in test_acc_report]))
         print(
             "\n"
             + " ".join(
@@ -686,7 +741,7 @@ def main():
                 ]
             )
         )
-        print(f"Results saved to: {csv_path}")
+        print(f"Results saved to: {csv_path}\nSummary saved to: {summary_csv_path}")
 
 
 if __name__ == "__main__":
