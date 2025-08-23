@@ -299,6 +299,14 @@ class EdgewiseGateHead(nn.Module):
                     s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
                     self.row_proj.bias[s:e] = c
                     self.col_proj.bias[s:e] = c
+                elif self.gate_init == "mix5":
+                    # Initialize a mixture of five presets: and, or, not, nor, xor
+                    c = float(max(0.0, (2.0 / max(1, self.gate_rank)) ** 0.5))
+                    for idx in [0, 1, 2]:  # and(0), or(1), not(2)
+                        s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
+                        self.row_proj.bias[s:e] = c
+                        self.col_proj.bias[s:e] = c
+                    # nor ~ not(2) already covered; xor ~ or(1) already covered
 
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
         if self.gate_mode == "dense":
