@@ -278,6 +278,8 @@ python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B 
   --plot --out results/ab5_cifar100_5m/E_dual
 ```
 
+Note: In multi-E runs each E_* is its own model instance. Early-step metrics can differ across A/B/E variants because of (a) different architectures (MoP vs Edgewise gating level), (b) different initializations (e.g., neutral vs xor/mix5 bias), (c) distinct effective parameter counts within the same budget, and (d) per-model optimization dynamics (e.g., lr_e vs base lr).
+
 Four-model run (A, B, E, E+) with E+ initialized by a 5-preset mixture:
 ```bash
 python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
