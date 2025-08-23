@@ -18,12 +18,7 @@ pip install -r requirements.txt
 # optional: quick self-test
 pytest -q
 ```
-#### Colab: Param-matched A/B/C at ~5M params
-```bash
-!python experiments/cifar10_ab3_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000 \
-  --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
-  --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
-```
+<!-- moved A/B/C example to experiments/README.md -->
 #### Quickstart: CIFAR-100 A/B/E/E+ (smoke run)
 Colab-friendly one cell to run A, B, E (neutral) and E+ (mix5) at ~5M.
 ```bash
