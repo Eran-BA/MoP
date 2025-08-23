@@ -291,6 +291,38 @@ python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B 
   --plot --out results/ab5_cifar100_5m/A_B_E_Emix5
 ```
 
+#### Smoke run (quick sanity)
+Minimal Python runner to sanity-check A, B, E(neutral), and E+(mix5) at ~5M on CIFAR‑100 (single seed, short schedule):
+```python
+import os, sys, subprocess
+
+def run_stream(cmd, log_path):
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    print("CMD:", " ".join(cmd), flush=True)
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, bufsize=1) as p, open(log_path, "w") as f:
+        for line in p.stdout:
+            print(line, end=""); f.write(line); f.flush()
+        if p.wait() != 0:
+            raise SystemExit("Command failed")
+
+out_dir = "results/ab5_cifar100_5m/smoke_A_B_E_Emix5"
+cmd = [
+    sys.executable, "-u", "experiments/cifar100_ab5_param_budgets.py",
+    "--targets", "5000000", "--models", "A", "B", "E",
+    "--steps", "3000", "--eval_every", "500", "--batch", "256",
+    "--val_frac", "0.1", "--val_seed", "0",
+    "--lr", "0.003", "--warmup_frac", "0.1", "--weight_decay", "0.05",
+    "--lr_e", "0.0007",
+    "--ew_views", "5", "--ew_use_k3", "--ew_share_qkv",
+    "--ew_mlp_ratio", "3.0",
+    "--ew_variants", "lowrank:neutral", "lowrank:mix5", "--ew_gate_rank", "4",
+    "--seeds", "0",
+    "--plot", "--out", out_dir,
+]
+run_stream(cmd, os.path.join(out_dir, "run.log"))
+```
+
 Example (CIFAR-100 @ ~5M with low-rank XOR preset):
 ```bash
 python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
