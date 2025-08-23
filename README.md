@@ -25,21 +25,16 @@ pytest -q
   --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
 ```
 #### Quickstart: CIFAR-100 A/B/E/E+ (smoke run)
-Minimal one-liner to run A, B, E (neutral), and E+ (mix5) at ~5M params.
+Colab-friendly one cell to run A, B, E (neutral) and E+ (mix5) at ~5M.
 ```bash
-python - <<'PY'
-import os, sys, subprocess
-out='results/ab5_cifar100_5m/quick_A_B_E_Emix5'; os.makedirs(out,exist_ok=True)
-cmd=[sys.executable,'-u','experiments/cifar100_ab5_param_budgets.py',
- '--targets','5000000','--models','A','B','E',
- '--steps','3000','--eval_every','500','--batch','256',
- '--val_frac','0.1','--val_seed','0',
- '--lr','0.003','--warmup_frac','0.1','--weight_decay','0.05','--lr_e','0.0007',
- '--ew_views','5','--ew_use_k3','--ew_share_qkv','--ew_mlp_ratio','3.0',
- '--ew_variants','lowrank:neutral','lowrank:mix5','--ew_gate_rank','4',
- '--seeds','0','--plot','--out',out]
-subprocess.run(cmd, check=True)
-PY
+!python experiments/cifar100_ab5_param_budgets.py \
+  --targets 5000000 --models A B E \
+  --steps 3000 --eval_every 500 --batch 256 \
+  --val_frac 0.1 --val_seed 0 \
+  --lr 0.003 --warmup_frac 0.1 --weight_decay 0.05 --lr_e 0.0007 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 3.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 \
+  --seeds 0 --plot --out results/ab5_cifar100_5m/quick_A_B_E_Emix5
 ```
 
 
