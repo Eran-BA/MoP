@@ -817,6 +817,25 @@ def main():
             test_acc_report.append((key, a_test))
         print(" ".join([f"T{key}={acc:.4f}" for key, acc in test_acc_report]))
 
+        # Save test CSV
+        test_csv_path = os.path.join(
+            args.out, f"cifar100_ab5_target_{int(target)}_test.csv"
+        )
+        with open(test_csv_path, "w") as f:
+            f.write("model,test_acc\n")
+            for key, acc in test_acc_report:
+                f.write(f"{key},{acc:.6f}\n")
+        # Save validation summary (mean±std) CSV
+        summary_csv_path = os.path.join(
+            args.out, f"cifar100_ab5_target_{int(target)}_val_summary.csv"
+        )
+        with open(summary_csv_path, "w") as f:
+            f.write("model,mean_val,std_val\n")
+            for k, vals in accs.items():
+                f.write(f"{k},{float(np.mean(vals)):.6f},{float(np.std(vals)):.6f}\n")
+        print(f"Saved test CSV: {test_csv_path}")
+        print(f"Saved val summary CSV: {summary_csv_path}")
+
         # Save plots
         if args.plot:
             os.makedirs(args.out, exist_ok=True)
