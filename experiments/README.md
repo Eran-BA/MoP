@@ -260,6 +260,21 @@ from mop.models import UnifiedMSA
 attn = UnifiedMSA(mode="E", dim=256, heads=4, n_views=5, use_k3=True, share_qkv=True)
 ```
 
+### Edgewise (E) gate options (dense and low-rank)
+
+- `--ew_gate_mode {dense,lowrank}`: gate implementation
+- `--ew_gate_rank R`: rank for low-rank gates (default 4)
+- `--ew_gate_init {neutral,and,or,not,nor,xor,chain}`: preset-biased initialization
+
+Example (CIFAR-100 @ ~5M with low-rank XOR preset):
+```bash
+python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+  --steps 30000 --eval_every 500 --batch 256 --val_frac 0.1 --val_seed 0 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv \
+  --ew_gate_mode lowrank --ew_gate_rank 4 --ew_gate_init xor \
+  --plot --out results/ab5_cifar100_5m
+```
+
 ## Results
 
 - Each script writes CSV summaries under `results/` subdirectories (e.g., `results/cifar10_ab_param_budgets/`).

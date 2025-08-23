@@ -22,7 +22,16 @@ def test_edgewise_forward_and_params():
     from experiments.cifar10_edgewise_gates import ViTEdgewise  # type: ignore
 
     b = _try_import()[0](dim=128, depth=2, heads=2, n_classes=10)
-    e = ViTEdgewise(dim=128, depth=2, heads=2, n_classes=10, use_k3=True)
+    e = ViTEdgewise(
+        dim=128,
+        depth=2,
+        heads=2,
+        n_classes=10,
+        use_k3=True,
+        gate_mode="lowrank",
+        gate_rank=2,
+        gate_init="nor",
+    )
     # Forward
     import torch
 

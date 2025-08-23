@@ -215,6 +215,14 @@ def main():
     ap.add_argument("--ew_mlp_ratio", type=float, default=4.0)
     ap.add_argument("--ew_use_k3", action="store_true")
     ap.add_argument("--ew_share_qkv", action="store_true")
+    ap.add_argument("--ew_gate_mode", type=str, default="dense", choices=["dense", "lowrank"])
+    ap.add_argument("--ew_gate_rank", type=int, default=4)
+    ap.add_argument(
+        "--ew_gate_init",
+        type=str,
+        default="neutral",
+        choices=["neutral", "and", "or", "not", "nor", "xor", "chain"],
+    )
     # Per-model LR for E
     ap.add_argument("--lr_e", type=float, default=None)
     ap.add_argument("--lr_mult_e", type=float, default=1.0)
@@ -437,6 +445,9 @@ def main():
                     n_views=int(chosen_ew_views),
                     share_qkv=args.ew_share_qkv,
                     mlp_ratio=float(chosen_ew_mlp),
+                    gate_mode=args.ew_gate_mode,
+                    gate_rank=int(args.ew_gate_rank),
+                    gate_init=str(args.ew_gate_init),
                 ).to(device)
 
             # Report params

@@ -232,23 +232,95 @@ class MultiHopMSA(nn.Module):
 
 
 class EdgewiseGateHead(nn.Module):
-    def __init__(self, in_ch: int, hidden: int = 16, use_k3: bool = False):
+    def __init__(
+        self,
+        in_ch: int,
+        hidden: int = 16,
+        use_k3: bool = False,
+        gate_mode: str = "dense",
+        gate_rank: int = 4,
+        gate_init: str = "neutral",
+    ):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_ch, hidden, kernel_size=1, bias=True)
-        self.act = nn.GELU(approximate="tanh")
-        self.use_k3 = use_k3
-        if self.use_k3:
-            self.mid3 = nn.Conv2d(hidden, hidden, kernel_size=3, padding=1, bias=True)
-        self.conv2 = nn.Conv2d(hidden, 4, kernel_size=1, bias=True)
-        nn.init.constant_(self.conv2.bias, -5.0)
+        self.use_k3 = bool(use_k3)
+        self.gate_mode = str(gate_mode)
+        self.gate_rank = int(gate_rank)
+        self.gate_init = str(gate_init)
+
+        if self.gate_mode == "dense":
+            self.conv1 = nn.Conv2d(in_ch, hidden, kernel_size=1, bias=True)
+            self.act = nn.GELU(approximate="tanh")
+            if self.use_k3:
+                self.mid3 = nn.Conv2d(hidden, hidden, kernel_size=3, padding=1, bias=True)
+            self.conv2 = nn.Conv2d(hidden, 4, kernel_size=1, bias=True)
+            # Bias preset
+            nn.init.constant_(self.conv2.bias, -5.0)
+            with torch.no_grad():
+                if self.gate_init == "and":
+                    self.conv2.bias[0] = 2.0  # g_and high
+                elif self.gate_init == "or":
+                    self.conv2.bias[1] = 2.0  # g_or high
+                elif self.gate_init == "not":
+                    self.conv2.bias[2] = 2.0  # g_not high
+                elif self.gate_init == "nor":
+                    # favor inhibition; keep OR low (already -5)
+                    self.conv2.bias[2] = 2.0
+                elif self.gate_init == "xor":
+                    # favor OR while suppressing AND (AND already low)
+                    self.conv2.bias[1] = 2.0
+                elif self.gate_init == "chain":
+                    self.conv2.bias[3] = 2.0  # g_chain high
+        else:
+            # Low-rank gate: produce row/col factors per gate using Conv1d over channels
+            # Inputs to this head should be provided as feat [B*H, C, N, N]
+            # We compute row factors a and col factors b from row/col pooled features
+            self.row_proj = nn.Conv1d(in_ch, 4 * self.gate_rank, kernel_size=1, bias=True)
+            self.col_proj = nn.Conv1d(in_ch, 4 * self.gate_rank, kernel_size=1, bias=True)
+            # Initialize biases to favor presets
+            with torch.no_grad():
+                # Start close to zero gates
+                nn.init.constant_(self.row_proj.bias, 0.0)
+                nn.init.constant_(self.col_proj.bias, 0.0)
+                # choose channel index: 0=and,1=or,2=not,3=chain
+                idx_map = {"and": 0, "or": 1, "not": 2, "chain": 3}
+                if self.gate_init in idx_map:
+                    idx = idx_map[self.gate_init]
+                    c = float(max(0.0, (2.0 / max(1, self.gate_rank)) ** 0.5))
+                    s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
+                    self.row_proj.bias[s:e] = c
+                    self.col_proj.bias[s:e] = c
+                elif self.gate_init in ("nor", "xor"):
+                    # For NOR/XOR, bias towards NOT or OR respectively
+                    if self.gate_init == "nor":
+                        idx = 2  # not
+                    else:
+                        idx = 1  # or
+                    c = float(max(0.0, (2.0 / max(1, self.gate_rank)) ** 0.5))
+                    s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
+                    self.row_proj.bias[s:e] = c
+                    self.col_proj.bias[s:e] = c
 
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
-        x = self.conv1(feat)
-        x = self.act(x)
-        if self.use_k3:
-            x = self.mid3(self.act(x))
-        x = self.conv2(x)
-        return torch.sigmoid(x)
+        if self.gate_mode == "dense":
+            x = self.conv1(feat)
+            x = self.act(x)
+            if self.use_k3:
+                x = self.mid3(self.act(x))
+            x = self.conv2(x)
+            return torch.sigmoid(x)
+        # Low-rank: build gates from row/col factors
+        # feat: [B*H, C, N, N]
+        BtH, C, N, _ = feat.shape
+        # row/col pooled features
+        row_feat = feat.mean(dim=3)  # [B*H, C, N]
+        col_feat = feat.mean(dim=2)  # [B*H, C, N]
+        a = self.row_proj(row_feat)  # [B*H, 4*r, N]
+        b = self.col_proj(col_feat)  # [B*H, 4*r, N]
+        a = a.view(BtH, 4, self.gate_rank, N)
+        b = b.view(BtH, 4, self.gate_rank, N)
+        # Outer-product sum over rank: G[b,c,i,j] = sum_k a[b,c,k,i]*b[b,c,k,j]
+        G = torch.einsum("bcrn,bcrm->bcnm", a, b)
+        return torch.sigmoid(G)
 
 
 class EdgewiseMSA(nn.Module):
@@ -262,6 +334,9 @@ class EdgewiseMSA(nn.Module):
         use_k3: bool = False,
         n_views: int = 2,
         share_qkv: bool = False,
+        gate_mode: str = "dense",
+        gate_rank: int = 4,
+        gate_init: str = "neutral",
     ):
         super().__init__()
         assert dim % heads == 0
@@ -283,7 +358,14 @@ class EdgewiseMSA(nn.Module):
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
         in_ch = 2 * self.n_views + 2
-        self.edge_head = EdgewiseGateHead(in_ch=in_ch, hidden=16, use_k3=use_k3)
+        self.edge_head = EdgewiseGateHead(
+            in_ch=in_ch,
+            hidden=16,
+            use_k3=use_k3,
+            gate_mode=gate_mode,
+            gate_rank=gate_rank,
+            gate_init=gate_init,
+        )
         self.chain_value_logit = nn.Parameter(torch.tensor(-2.0))
 
     def forward(

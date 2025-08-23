@@ -52,24 +52,68 @@ def lse(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 class EdgewiseGateHead(nn.Module):
-    def __init__(self, in_ch: int, hidden: int = 16, use_k3: bool = False):
+    def __init__(
+        self,
+        in_ch: int,
+        hidden: int = 16,
+        use_k3: bool = False,
+        gate_mode: str = "dense",
+        gate_rank: int = 4,
+        gate_init: str = "neutral",
+    ):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_ch, hidden, kernel_size=1, bias=True)
-        self.act = nn.GELU(approximate="tanh")
-        self.use_k3 = use_k3
-        if self.use_k3:
-            self.mid3 = nn.Conv2d(hidden, hidden, kernel_size=3, padding=1, bias=True)
-        self.conv2 = nn.Conv2d(hidden, 4, kernel_size=1, bias=True)
-        nn.init.constant_(self.conv2.bias, -5.0)
+        self.use_k3 = bool(use_k3)
+        self.gate_mode = str(gate_mode)
+        self.gate_rank = int(gate_rank)
+        self.gate_init = str(gate_init)
+
+        if self.gate_mode == "dense":
+            self.conv1 = nn.Conv2d(in_ch, hidden, kernel_size=1, bias=True)
+            self.act = nn.GELU(approximate="tanh")
+            if self.use_k3:
+                self.mid3 = nn.Conv2d(hidden, hidden, kernel_size=3, padding=1, bias=True)
+            self.conv2 = nn.Conv2d(hidden, 4, kernel_size=1, bias=True)
+            nn.init.constant_(self.conv2.bias, -5.0)
+            if self.gate_init == "and":
+                with torch.no_grad():
+                    self.conv2.bias[0] = 2.0
+            elif self.gate_init == "or":
+                with torch.no_grad():
+                    self.conv2.bias[1] = 2.0
+            elif self.gate_init == "chain":
+                with torch.no_grad():
+                    self.conv2.bias[3] = 2.0
+        else:
+            self.row_proj = nn.Conv1d(in_ch, 4 * self.gate_rank, kernel_size=1, bias=True)
+            self.col_proj = nn.Conv1d(in_ch, 4 * self.gate_rank, kernel_size=1, bias=True)
+            with torch.no_grad():
+                nn.init.constant_(self.row_proj.bias, 0.0)
+                nn.init.constant_(self.col_proj.bias, 0.0)
+                if self.gate_init in ("and", "or", "chain"):
+                    idx = {"and": 0, "or": 1, "chain": 3}[self.gate_init]
+                    c = float(max(0.0, (2.0 / max(1, self.gate_rank)) ** 0.5))
+                    s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
+                    self.row_proj.bias[s:e] = c
+                    self.col_proj.bias[s:e] = c
 
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
         # feat: [B*H, C, T, T]
-        x = self.conv1(feat)
-        x = self.act(x)
-        if self.use_k3:
-            x = self.mid3(self.act(x))
-        x = self.conv2(x)
-        return torch.sigmoid(x)  # [B*H, 4, T, T]: g_and, g_or, g_not, g_chain
+        if self.gate_mode == "dense":
+            x = self.conv1(feat)
+            x = self.act(x)
+            if self.use_k3:
+                x = self.mid3(self.act(x))
+            x = self.conv2(x)
+            return torch.sigmoid(x)
+        BtH, C, N, _ = feat.shape
+        row_feat = feat.mean(dim=3)
+        col_feat = feat.mean(dim=2)
+        a = self.row_proj(row_feat)
+        b = self.col_proj(col_feat)
+        a = a.view(BtH, 4, self.gate_rank, N)
+        b = b.view(BtH, 4, self.gate_rank, N)
+        G = torch.einsum("bcrn,bcrm->bcnm", a, b)
+        return torch.sigmoid(G)
 
 
 class EdgewiseMSA(nn.Module):
@@ -89,6 +133,9 @@ class EdgewiseMSA(nn.Module):
         beta_not: float = 0.5,
         use_k3: bool = False,
         n_views: int = 2,
+        gate_mode: str = "dense",
+        gate_rank: int = 4,
+        gate_init: str = "neutral",
     ):
         super().__init__()
         assert dim % heads == 0
@@ -105,7 +152,14 @@ class EdgewiseMSA(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
         in_ch = 2 * self.n_views + 2
-        self.edge_head = EdgewiseGateHead(in_ch=in_ch, hidden=16, use_k3=use_k3)
+        self.edge_head = EdgewiseGateHead(
+            in_ch=in_ch,
+            hidden=16,
+            use_k3=use_k3,
+            gate_mode=gate_mode,
+            gate_rank=gate_rank,
+            gate_init=gate_init,
+        )
         self.chain_value_logit = nn.Parameter(torch.tensor(-2.0))
 
     def forward(
@@ -214,7 +268,15 @@ class BlockEdgewise(nn.Module):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
         self.attn = EdgewiseMSA(
-            dim, heads, attn_drop, drop, beta_not=beta_not, use_k3=use_k3
+            dim,
+            heads,
+            attn_drop,
+            drop,
+            beta_not=beta_not,
+            use_k3=use_k3,
+            gate_mode=gate_mode,
+            gate_rank=gate_rank,
+            gate_init=gate_init,
         )
         self.dp1 = DropPath(drop_path) if DropPath is not None else nn.Identity()
         self.ln2 = nn.LayerNorm(dim)
@@ -241,6 +303,9 @@ class ViTEdgewise(nn.Module):
         num_tokens: int = 64,
         beta_not: float = 0.5,
         use_k3: bool = False,
+        gate_mode: str = "dense",
+        gate_rank: int = 4,
+        gate_init: str = "neutral",
     ):
         super().__init__()
         if PatchEmbed is None:
@@ -263,6 +328,9 @@ class ViTEdgewise(nn.Module):
                     dps[i],
                     beta_not=beta_not,
                     use_k3=use_k3,
+                    gate_mode=gate_mode,
+                    gate_rank=gate_rank,
+                    gate_init=gate_init,
                 )
                 for i in range(depth)
             ]
@@ -348,6 +416,14 @@ def main():
     ap.add_argument("--drop_path", type=float, default=0.1)
     ap.add_argument("--beta_not", type=float, default=0.5)
     ap.add_argument("--out", type=str, default="results/cifar10_edgewise_gates")
+    ap.add_argument("--ew_gate_mode", type=str, default="dense", choices=["dense", "lowrank"])
+    ap.add_argument("--ew_gate_rank", type=int, default=4)
+    ap.add_argument(
+        "--ew_gate_init",
+        type=str,
+        default="neutral",
+        choices=["neutral", "and", "or", "chain"],
+    )
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -373,6 +449,9 @@ def main():
             n_classes=10,
             drop_path=args.drop_path,
             beta_not=args.beta_not,
+            gate_mode=args.ew_gate_mode,
+            gate_rank=args.ew_gate_rank,
+            gate_init=args.ew_gate_init,
         ).to(device)
         print(
             f"Params: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}"

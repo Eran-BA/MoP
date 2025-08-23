@@ -342,6 +342,14 @@ def main():
     ap.add_argument("--ew_views", type=int, default=5)
     ap.add_argument("--ew_share_qkv", action="store_true")
     ap.add_argument("--ew_mlp_ratio", type=float, default=4.0)
+    ap.add_argument("--ew_gate_mode", type=str, default="dense", choices=["dense", "lowrank"])  # noqa: E501
+    ap.add_argument("--ew_gate_rank", type=int, default=4)
+    ap.add_argument(
+        "--ew_gate_init",
+        type=str,
+        default="neutral",
+        choices=["neutral", "and", "or", "not", "nor", "xor", "chain"],
+    )
     # Advanced regularization/augmentation
     ap.add_argument("--label_smoothing", type=float, default=0.1)
     ap.add_argument("--use_randaug", action="store_true")
@@ -479,6 +487,9 @@ def main():
                 "n_views": int(args.ew_views),
                 "share_qkv": args.ew_share_qkv,
                 "mlp_ratio": float(args.ew_mlp_ratio),
+                "gate_mode": args.ew_gate_mode,
+                "gate_rank": int(args.ew_gate_rank),
+                "gate_init": str(args.ew_gate_init),
                 "num_tokens": int(num_tokens),
             }
             ew_cfg, ew_p, ew_within = find_model_config_match_baseline(
@@ -527,6 +538,9 @@ def main():
                     patch=int(args.patch),
                     num_tokens=int(num_tokens),
                     drop_path=float(args.drop_path),
+                    gate_mode=args.ew_gate_mode,
+                    gate_rank=int(args.ew_gate_rank),
+                    gate_init=str(args.ew_gate_init),
                 ).to(device)
 
             # Optional EMA models

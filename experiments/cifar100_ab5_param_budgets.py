@@ -410,6 +410,21 @@ def main():
         help="share QKV across views with per-view scales",
     )
     ap.add_argument(
+        "--ew_gate_mode",
+        type=str,
+        default="dense",
+        choices=["dense", "lowrank"],
+        help="Edgewise gate implementation: dense conv head or low-rank",
+    )
+    ap.add_argument("--ew_gate_rank", type=int, default=4, help="Rank for low-rank gate")
+    ap.add_argument(
+        "--ew_gate_init",
+        type=str,
+        default="neutral",
+        choices=["neutral", "and", "or", "not", "nor", "xor", "chain"],
+        help="Preset gate initialization bias",
+    )
+    ap.add_argument(
         "--debug_budget", action="store_true", help="print extra budget search logs"
     )
     ap.add_argument("--out", type=str, default="results/cifar100_ab5_param_budgets")
@@ -540,6 +555,9 @@ def main():
                                 "n_views": int(v),
                                 "share_qkv": args.ew_share_qkv,
                                 "mlp_ratio": float(r),
+                                "gate_mode": args.ew_gate_mode,
+                                "gate_rank": int(args.ew_gate_rank),
+                                "gate_init": str(args.ew_gate_init),
                             }
                             ew_cfg2, ew_p2, within = find_model_config_match_baseline(
                                 ViTEdgewise,
@@ -674,6 +692,9 @@ def main():
                     n_views=int(chosen_ew_views),
                     share_qkv=args.ew_share_qkv,
                     mlp_ratio=float(chosen_ew_mlp),
+                    gate_mode=args.ew_gate_mode,
+                    gate_rank=int(args.ew_gate_rank),
+                    gate_init=str(args.ew_gate_init),
                 ).to(device)
 
             # Params line
