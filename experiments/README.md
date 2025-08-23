@@ -265,6 +265,29 @@ attn = UnifiedMSA(mode="E", dim=256, heads=4, n_views=5, use_k3=True, share_qkv=
 - `--ew_gate_mode {dense,lowrank}`: gate implementation
 - `--ew_gate_rank R`: rank for low-rank gates (default 4)
 - `--ew_gate_init {neutral,and,or,not,nor,xor,chain}`: preset-biased initialization
+- `--ew_variants <mode:init ...>`: run multiple Edgewise variants in the same run (e.g., `lowrank:neutral lowrank:xor`).
+
+Multi-E in one run (example):
+```bash
+python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+  --steps 30000 --eval_every 500 --batch 256 \
+  --val_frac 0.1 --val_seed 0 \
+  --lr 0.003 --warmup_frac 0.1 --weight_decay 0.05 --lr_e 0.0007 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 3.0 \
+  --ew_variants lowrank:neutral lowrank:xor --ew_gate_rank 4 \
+  --plot --out results/ab5_cifar100_5m/E_dual
+```
+
+Four-model run (A, B, E, E+) with E+ initialized by a 5-preset mixture:
+```bash
+python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+  --steps 30000 --eval_every 500 --batch 256 \
+  --val_frac 0.1 --val_seed 0 \
+  --lr 0.003 --warmup_frac 0.1 --weight_decay 0.05 --lr_e 0.0007 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 3.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 \
+  --plot --out results/ab5_cifar100_5m/A_B_E_Emix5
+```
 
 Example (CIFAR-100 @ ~5M with low-rank XOR preset):
 ```bash
