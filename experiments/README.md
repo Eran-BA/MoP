@@ -6,75 +6,75 @@ This directory contains runnable experiment scripts for CIFAR-10/100 using the m
 
 - Multi-seed CIFAR-10 baseline vs MoP:
 ```bash
-python experiments/cifar10_multi_seed.py --steps 1000 --seeds 0 1 2
+!python experiments/cifar10_multi_seed.py --steps 1000 --seeds 0 1 2
 ```
 
 - Multi-seed CIFAR-100 baseline vs MoP:
 ```bash
-python experiments/cifar100_multi_seed.py --steps 1500 --seeds 0 1 2
+!python experiments/cifar100_multi_seed.py --steps 1500 --seeds 0 1 2
 ```
 
 - Param-matched A/B (Baseline vs MoP) at ~50M params:
 ```bash
-python experiments/cifar10_ab_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000
+!python experiments/cifar10_ab_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000
 ```
 
 - Param-matched A/B/C (Baseline vs MoP vs Cross-View Mixer) at ~50M params:
 ```bash
-python experiments/cifar10_ab3_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000 \
+!python experiments/cifar10_ab3_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1000 \
   --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
   --xview_enable_prior --xview_prior_weight 0.5 --xview_anchor_mode argmax_row_sum
 ```
 
 - MoP hyperparameter sweep over views/kernels (CIFAR-10):
 ```bash
-python experiments/cifar10_mop_sweep.py --steps 1000 --seeds 0 1 --views 3 5 7 --kernels 2 3 4
+!python experiments/cifar10_mop_sweep.py --steps 1000 --seeds 0 1 --views 3 5 7 --kernels 2 3 4
 ```
 
 - Dual-path gating with two-hop composition (CIFAR-10):
 ```bash
-python experiments/cifar10_twohop_gates.py --steps 1000 --seeds 0 1 --gate_chain 1.0
+!python experiments/cifar10_twohop_gates.py --steps 1000 --seeds 0 1 --gate_chain 1.0
 ```
 
 - Cross-view mixer with per-key prior sharpening and transpose cues (CIFAR-10):
 ```bash
-python experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
+!python experiments/cifar10_crossview_mixer.py --steps 1000 --seeds 0 1 \
   --enable_prior --prior_weight 0.5 --use_transpose_cues --t1 0.2 --t2 0.2
 ```
 
 - Dual-path gating with two-hop composition (CIFAR-100):
 ```bash
-python experiments/cifar100_twohop_gates.py --steps 1500 --seeds 0 1 --gate_chain 1.0
+!python experiments/cifar100_twohop_gates.py --steps 1500 --seeds 0 1 --gate_chain 1.0
 ```
 
 - Param-matched Two-hop (CIFAR-10) at ~5M params:
 ```bash
-python experiments/cifar10_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000
+!python experiments/cifar10_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1000
 ```
 
 - Param-matched Two-hop (CIFAR-100) at ~5M params:
 ```bash
-python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500
+!python experiments/cifar100_twohop_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500
 ```
 
 - Multi-hop gating (value-aware) (CIFAR-10):
 ```bash
-python experiments/cifar10_multihop_gates.py --steps 1000 --seeds 0 1 --hops 3 --gate_chain 1.0
+!python experiments/cifar10_multihop_gates.py --steps 1000 --seeds 0 1 --hops 3 --gate_chain 1.0
 ```
 
 - Multi-hop gating (value-aware) (CIFAR-100):
 ```bash
-python experiments/cifar100_multihop_gates.py --steps 1500 --seeds 0 1 --hops 3 --gate_chain 1.0
+!python experiments/cifar100_multihop_gates.py --steps 1500 --seeds 0 1 --hops 3 --gate_chain 1.0
 ```
 
 - Edgewise-gated boolean mixer (CIFAR-10):
 ```bash
-python experiments/cifar10_edgewise_gates.py --steps 1000 --seeds 0 1
+!python experiments/cifar10_edgewise_gates.py --steps 1000 --seeds 0 1
 ```
 
 - Edgewise-gated boolean mixer (CIFAR-100):
 ```bash
-python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
+!python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
 ```
 
 ## Scripts
@@ -179,14 +179,14 @@ python experiments/cifar100_edgewise_gates.py --steps 1500 --seeds 0 1
 - Automatic fallback ladder for E during matching: views → mlp_ratio → drop 3×3.
 - Example (~5M):
 ```bash
-python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \
+!python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --seeds 0 1 --steps 1500 \
   --models A B C D E \
   --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
   --xview_anchor_mode argmax_row_sum --mh_hops 3 --mh_gate_chain 1.0
 ```
 - Example (~50M, with Edgewise-specific flags; adjust `--batch` for device memory):
 ```bash
-python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1500 \
+!python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 --steps 1500 \
   --models A B C D E --batch 64 \
   --ew_views 5 --ew_use_k3 --ew_share_qkv --debug_budget \
   --xview_transpose --xview_t1 0.2 --xview_t2 0.2 --xview_enable_prior --xview_prior_weight 0.5 \
@@ -204,7 +204,7 @@ python experiments/cifar100_ab5_param_budgets.py --targets 50000000 --seeds 0 1 
 - Examples (adjust `--batch` to your hardware):
 ```bash
 # ViT-B/16 (~86M) and ViT-L/16 (~307M) with A/B/E
-python experiments/imagenet_ab_param_budgets.py \
+!python experiments/imagenet_ab_param_budgets.py \
   --data_root /path/to/imagenet \
   --targets 86000000 307000000 \
   --models A B E \
@@ -214,10 +214,11 @@ python experiments/imagenet_ab_param_budgets.py \
   --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
   --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
   --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
-  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 --lr_e 0.0007
 
 # ViT-H/14 (~632M) with A/B/E
-python experiments/imagenet_ab_param_budgets.py \
+!python experiments/imagenet_ab_param_budgets.py \
   --data_root /path/to/imagenet \
   --targets 632000000 \
   --models A B E \
@@ -227,14 +228,15 @@ python experiments/imagenet_ab_param_budgets.py \
   --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
   --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
   --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
-  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 --lr_e 0.0007
 ```
 
 ### `ab5_tournament.py`
 - Tournament-style A/B/C/D/E over 5 seeds (CIFAR-100 by default). Also supports plan-only mode for 1B+ sizing without training.
 - Example (5M, five seeds):
 ```bash
-python experiments/ab5_tournament.py --targets 5000000 --models A B C D E \
+!python experiments/ab5_tournament.py --targets 5000000 --models A B C D E \
   --steps 1000 --eval_every 100 --batch 64 \
   --ew_views 5 --ew_use_k3 --ew_share_qkv \
   --xview_transpose --xview_t1 0.2 --xview_t2 0.2 \
@@ -247,7 +249,7 @@ python experiments/ab5_tournament.py --targets 5000000 --models A B C D E \
 - Aggregates CSVs from CIFAR and ImageNet experiments to produce publication-ready Markdown and LaTeX tables.
 - Example:
 ```bash
-python experiments/ab5_paper_benchmark.py
+!python experiments/ab5_paper_benchmark.py
 # writes results/paper_benchmark/ab5_benchmark.md and .tex
 ```
 
@@ -269,7 +271,7 @@ attn = UnifiedMSA(mode="E", dim=256, heads=4, n_views=5, use_k3=True, share_qkv=
 
 Multi-E in one run (example):
 ```bash
-python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+!python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
   --steps 30000 --eval_every 500 --batch 256 \
   --val_frac 0.1 --val_seed 0 \
   --lr 0.003 --warmup_frac 0.1 --weight_decay 0.05 --lr_e 0.0007 \
@@ -278,17 +280,24 @@ python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B 
   --plot --out results/ab5_cifar100_5m/E_dual
 ```
 
-Note: In multi-E runs each E_* is its own model instance. Early-step metrics can differ across A/B/E variants because of (a) different architectures (MoP vs Edgewise gating level), (b) different initializations (e.g., neutral vs xor/mix5 bias), (c) distinct effective parameter counts within the same budget, and (d) per-model optimization dynamics (e.g., lr_e vs base lr).
-
 Four-model run (A, B, E, E+) with E+ initialized by a 5-preset mixture:
 ```bash
-python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+!python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
   --steps 30000 --eval_every 500 --batch 256 \
   --val_frac 0.1 --val_seed 0 \
   --lr 0.003 --warmup_frac 0.1 --weight_decay 0.05 --lr_e 0.0007 \
   --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 3.0 \
   --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 \
   --plot --out results/ab5_cifar100_5m/A_B_E_Emix5
+```
+
+Example (CIFAR-100 @ ~5M with low-rank XOR preset):
+```bash
+!python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+  --steps 30000 --eval_every 500 --batch 256 --val_frac 0.1 --val_seed 0 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv \
+  --ew_gate_mode lowrank --ew_gate_rank 4 --ew_gate_init xor \
+  --plot --out results/ab5_cifar100_5m
 ```
 
 #### Smoke run (quick sanity)
@@ -325,7 +334,7 @@ run_stream(cmd, os.path.join(out_dir, "run.log"))
 
 Example (CIFAR-100 @ ~5M with low-rank XOR preset):
 ```bash
-python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
+!python experiments/cifar100_ab5_param_budgets.py --targets 5000000 --models A B E \
   --steps 30000 --eval_every 500 --batch 256 --val_frac 0.1 --val_seed 0 \
   --ew_views 5 --ew_use_k3 --ew_share_qkv \
   --ew_gate_mode lowrank --ew_gate_rank 4 --ew_gate_init xor \

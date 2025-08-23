@@ -238,13 +238,13 @@ pip install -e .
 
 ### Verify Installation
 ```bash
-pytest
-python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
+!pytest
+!python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
 ```
 
 ### Tiny smoke run
 ```bash
-python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
+!python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0
 ```
 The smoke script auto-detects your device (`cuda`/`mps`/`cpu`) and writes a CSV to `results/cifar10/cifar10_acc.csv`.
 
@@ -347,36 +347,16 @@ print(f"MoP: {count_params(mop_model):,} parameters")
 Quick subset run to validate wiring and get a rough A/B signal:
 
 ### Smoke run: CIFAR‑100 A/B/E/E+ (~5M params)
-Quick Python snippet to run A, B, E (neutral), and E+ (mix5) together at ~5M with a short schedule.
-```python
-import os, sys, subprocess
-
-def run_stream(cmd, log_path):
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    print("CMD:", " ".join(cmd), flush=True)
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          text=True, bufsize=1) as p, open(log_path, "w") as f:
-        for line in p.stdout:
-            print(line, end=""); f.write(line); f.flush()
-        if p.wait() != 0:
-            raise SystemExit("Command failed")
-
-out_dir = "results/ab5_cifar100_5m/smoke_A_B_E_Emix5"
-cmd = [
-    sys.executable, "-u", "experiments/cifar100_ab5_param_budgets.py",
-    "--targets", "5000000", "--models", "A", "B", "E",
-    "--steps", "3000", "--eval_every", "500", "--batch", "256",
-    "--val_frac", "0.1", "--val_seed", "0",
-    "--lr", "0.003", "--warmup_frac", "0.1", "--weight_decay", "0.05",
-    "--lr_e", "0.0007",
-    "--ew_views", "5", "--ew_use_k3", "--ew_share_qkv",
-    "--ew_mlp_ratio", "3.0",
-    # Multi-E: neutral and mix5 (one E+ model with 5 gate priors)
-    "--ew_variants", "lowrank:neutral", "lowrank:mix5", "--ew_gate_rank", "4",
-    "--seeds", "0",
-    "--plot", "--out", out_dir,
-]
-run_stream(cmd, os.path.join(out_dir, "run.log"))
+Colab-friendly cell to run A, B, E (neutral), and E+ (mix5) together at ~5M.
+```bash
+!python experiments/cifar100_ab5_param_budgets.py \
+  --targets 5000000 --models A B E \
+  --steps 3000 --eval_every 500 --batch 256 \
+  --val_frac 0.1 --val_seed 0 \
+  --lr 0.003 --warmup_frac 0.1 --weight_decay 0.05 --lr_e 0.0007 \
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 3.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 \
+  --seeds 0 --plot --out results/ab5_cifar100_5m/smoke_A_B_E_Emix5
 ```
 
 | setting | baseline | MoP |
@@ -426,7 +406,7 @@ from mop.models import ViTEncoder, PatchEmbed, MSA, MLP, Block
 
 ### CIFAR-10 Smoke Run
 ```bash
-python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
+!python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --seeds 0 --out results/cifar10
 ```
 
 ### Param-matched A/B/C at ~5M params (Colab)
@@ -453,7 +433,7 @@ python experiments/cifar10_multi_seed.py --tiny --steps 400 --eval_every 100 --s
 
 ### CIFAR-100 with Augmentation (Planned)
 ```bash
-python experiments/cifar100_augmented.py --seeds 0 1 2 --output results/cifar100
+!python experiments/cifar100_augmented.py --seeds 0 1 2 --output results/cifar100
 ```
 
 ### A/B/C/D/E on CIFAR-100 (param-matched)
@@ -475,7 +455,7 @@ Colab-friendly examples. Use a smaller `--batch` if you hit OOM on MPS/Colab.
 ### ImageNet A/B/E (param-matched, paper-style aug)
 ```bash
 # ViT-B/16 (~86M) and ViT-L/16 (~307M)
-python experiments/imagenet_ab_param_budgets.py \
+!python experiments/imagenet_ab_param_budgets.py \
   --data_root /path/to/imagenet \
   --targets 86000000 307000000 \
   --models A B E \
@@ -485,10 +465,11 @@ python experiments/imagenet_ab_param_budgets.py \
   --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
   --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
   --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
-  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 --lr_e 0.0007
 
 # ViT-H/14 (~632M)
-python experiments/imagenet_ab_param_budgets.py \
+!python experiments/imagenet_ab_param_budgets.py \
   --data_root /path/to/imagenet \
   --targets 632000000 \
   --models A B E \
@@ -498,12 +479,13 @@ python experiments/imagenet_ab_param_budgets.py \
   --use_randaug --randaug_n 2 --randaug_m 9 --random_erasing 0.25 \
   --mixup_alpha 0.8 --cutmix_alpha 1.0 --mix_prob 0.5 \
   --drop_path 0.4 --grad_clip 1.0 --ema --ema_decay 0.9999 \
-  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0
+  --ew_views 5 --ew_use_k3 --ew_share_qkv --ew_mlp_ratio 4.0 \
+  --ew_variants lowrank:neutral lowrank:mix5 --ew_gate_rank 4 --lr_e 0.0007
 ```
 
 ### Paper tables
 ```bash
-python experiments/ab5_paper_benchmark.py
+!python experiments/ab5_paper_benchmark.py
 # writes results/paper_benchmark/ab5_benchmark.md and .tex
 ```
 
@@ -516,7 +498,7 @@ attn = UnifiedMSA(mode="C", dim=256, heads=4, use_transpose_cues=True, t1=0.2, t
 
 ### Ablation Studies (Planned)
 ```bash
-python experiments/ablation_study.py --variants full views_only kernels_only no_gate
+!python experiments/ablation_study.py --variants full views_only kernels_only no_gate
 ```
 
 ## Visualization
