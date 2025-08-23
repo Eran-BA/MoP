@@ -339,6 +339,39 @@ print(f"MoP: {count_params(mop_model):,} parameters")
 ### Sanity Check (Tiny CIFAR-10 smoke)
 Quick subset run to validate wiring and get a rough A/B signal:
 
+### Smoke run: CIFAR‑100 A/B/E/E+ (~5M params)
+Quick Python snippet to run A, B, E (neutral), and E+ (mix5) together at ~5M with a short schedule.
+```python
+import os, sys, subprocess
+
+def run_stream(cmd, log_path):
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    print("CMD:", " ".join(cmd), flush=True)
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, bufsize=1) as p, open(log_path, "w") as f:
+        for line in p.stdout:
+            print(line, end=""); f.write(line); f.flush()
+        if p.wait() != 0:
+            raise SystemExit("Command failed")
+
+out_dir = "results/ab5_cifar100_5m/smoke_A_B_E_Emix5"
+cmd = [
+    sys.executable, "-u", "experiments/cifar100_ab5_param_budgets.py",
+    "--targets", "5000000", "--models", "A", "B", "E",
+    "--steps", "3000", "--eval_every", "500", "--batch", "256",
+    "--val_frac", "0.1", "--val_seed", "0",
+    "--lr", "0.003", "--warmup_frac", "0.1", "--weight_decay", "0.05",
+    "--lr_e", "0.0007",
+    "--ew_views", "5", "--ew_use_k3", "--ew_share_qkv",
+    "--ew_mlp_ratio", "3.0",
+    # Multi-E: neutral and mix5 (one E+ model with 5 gate priors)
+    "--ew_variants", "lowrank:neutral", "lowrank:mix5", "--ew_gate_rank", "4",
+    "--seeds", "0",
+    "--plot", "--out", out_dir,
+]
+run_stream(cmd, os.path.join(out_dir, "run.log"))
+```
+
 | setting | baseline | MoP |
 |--------:|:--------:|:---:|
 | CIFAR-10 (tiny smoke) | 0.279 | 0.332 |
