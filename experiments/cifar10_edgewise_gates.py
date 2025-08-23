@@ -74,14 +74,18 @@ class EdgewiseGateHead(nn.Module):
                 self.mid3 = nn.Conv2d(hidden, hidden, kernel_size=3, padding=1, bias=True)
             self.conv2 = nn.Conv2d(hidden, 4, kernel_size=1, bias=True)
             nn.init.constant_(self.conv2.bias, -5.0)
-            if self.gate_init == "and":
-                with torch.no_grad():
+            with torch.no_grad():
+                if self.gate_init == "and":
                     self.conv2.bias[0] = 2.0
-            elif self.gate_init == "or":
-                with torch.no_grad():
+                elif self.gate_init == "or":
                     self.conv2.bias[1] = 2.0
-            elif self.gate_init == "chain":
-                with torch.no_grad():
+                elif self.gate_init == "not":
+                    self.conv2.bias[2] = 2.0
+                elif self.gate_init == "nor":
+                    self.conv2.bias[2] = 2.0
+                elif self.gate_init == "xor":
+                    self.conv2.bias[1] = 2.0
+                elif self.gate_init == "chain":
                     self.conv2.bias[3] = 2.0
         else:
             self.row_proj = nn.Conv1d(in_ch, 4 * self.gate_rank, kernel_size=1, bias=True)
@@ -89,8 +93,15 @@ class EdgewiseGateHead(nn.Module):
             with torch.no_grad():
                 nn.init.constant_(self.row_proj.bias, 0.0)
                 nn.init.constant_(self.col_proj.bias, 0.0)
-                if self.gate_init in ("and", "or", "chain"):
-                    idx = {"and": 0, "or": 1, "chain": 3}[self.gate_init]
+                idx_map = {"and": 0, "or": 1, "not": 2, "chain": 3}
+                if self.gate_init in idx_map:
+                    idx = idx_map[self.gate_init]
+                    c = float(max(0.0, (2.0 / max(1, self.gate_rank)) ** 0.5))
+                    s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
+                    self.row_proj.bias[s:e] = c
+                    self.col_proj.bias[s:e] = c
+                elif self.gate_init in ("nor", "xor"):
+                    idx = 2 if self.gate_init == "nor" else 1
                     c = float(max(0.0, (2.0 / max(1, self.gate_rank)) ** 0.5))
                     s, e = idx * self.gate_rank, (idx + 1) * self.gate_rank
                     self.row_proj.bias[s:e] = c
@@ -264,6 +275,9 @@ class BlockEdgewise(nn.Module):
         drop_path: float = 0.0,
         beta_not: float = 0.5,
         use_k3: bool = False,
+        gate_mode: str = "dense",
+        gate_rank: int = 4,
+        gate_init: str = "neutral",
     ):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
@@ -422,7 +436,7 @@ def main():
         "--ew_gate_init",
         type=str,
         default="neutral",
-        choices=["neutral", "and", "or", "chain"],
+        choices=["neutral", "and", "or", "not", "nor", "xor", "chain"],
     )
     args = ap.parse_args()
 
