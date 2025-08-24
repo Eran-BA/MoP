@@ -603,11 +603,11 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 
 
 ### What's Next:
-✅ Filter-Bank Mixture-of-Products
-✅ Generalize to a lens bank via (optionally causal) depthwise convs over Q/K(1…M); run CNN filters in parallel over the bank; support gate-free log-space multiplication. (Implemented: Q/K lens bank with causal option; stacked score conv + log-space ops)
-✅ Multi-scale kernels with varying dilations
-✅ Parallel CNN over a bank of score/lens channels (Edgewise gate head over [Sᵢ, Sᵢᵀ, log C→, log C←])
-✅ Gate-free log-space mixing (score-space addition S₁+S₂; log chain terms)
+✅ Filter-Bank Mixture-of-Products<br/>
+✅ Generalize to a lens bank via (optionally causal) depthwise convs over Q/K(1…M); run CNN filters in parallel over the bank; support gate-free log-space multiplication. (Implemented: Q/K lens bank with causal option; stacked score conv + log-space ops)<br/>
+✅ Multi-scale kernels with varying dilations<br/>
+✅ Parallel CNN over a bank of score/lens channels (Edgewise gate head over [Sᵢ, Sᵢᵀ, log C→, log C←])<br/>
+✅ Gate-free log-space mixing (score-space addition S₁+S₂; log chain terms)<br/>
 ✅ Multi-head MoP attention via `UnifiedMSA` (modes D/E)
 
 
