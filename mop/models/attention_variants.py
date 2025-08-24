@@ -345,6 +345,9 @@ class EdgewiseMSA(nn.Module):
         gate_mode: str = "dense",
         gate_rank: int = 4,
         gate_init: str = "neutral",
+        use_lens_bank: bool = False,
+        lens_kernel_size: int = 3,
+        lens_dilations: Optional[Tuple[int, ...]] = None,
     ):
         super().__init__()
         assert dim % heads == 0
@@ -353,6 +356,9 @@ class EdgewiseMSA(nn.Module):
         self.beta_not = beta_not
         self.n_views = max(2, int(n_views))
         self.share_qkv = bool(share_qkv)
+        self.use_lens_bank = bool(use_lens_bank)
+        self.lens_kernel_size = int(lens_kernel_size)
+        self.lens_dilations = tuple(lens_dilations) if lens_dilations is not None else (1, 2)
         if self.share_qkv:
             self.qkv = nn.Linear(dim, dim * 3, bias=False)
             self.q_scale = nn.Parameter(torch.ones(self.n_views, self.h, 1, self.dk))
@@ -366,6 +372,23 @@ class EdgewiseMSA(nn.Module):
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
         in_ch = 2 * self.n_views + 2
+        # Optional depthwise lens bank over S_i channels with multi-scale dilations
+        if self.use_lens_bank:
+            self.lens_bank = nn.ModuleList(
+                [
+                    nn.Conv2d(
+                        in_channels=self.n_views,
+                        out_channels=self.n_views,
+                        kernel_size=self.lens_kernel_size,
+                        padding=d,
+                        dilation=d,
+                        groups=self.n_views,
+                        bias=False,
+                    )
+                    for d in self.lens_dilations
+                ]
+            )
+            in_ch = in_ch + self.n_views * len(self.lens_dilations)
         self.edge_head = EdgewiseGateHead(
             in_ch=in_ch,
             hidden=16,
@@ -415,7 +438,19 @@ class EdgewiseMSA(nn.Module):
         ST_imgs = [img.transpose(1, 2) for img in S_imgs]
         Cr_img = torch.log(C_fwd + eps).view(BtH, N, N)
         Cl_img = torch.log(C_bwd + eps).view(BtH, N, N)
-        feat = torch.stack(S_imgs + ST_imgs + [Cr_img, Cl_img], dim=1)
+        feat_list = S_imgs + ST_imgs + [Cr_img, Cl_img]
+        if self.use_lens_bank:
+            # Stack S_i as channels [B*H, V, N, N] and apply depthwise conv per dilation
+            S_stack = torch.stack(S_imgs, dim=1)  # [B*H, V, N, N]
+            lens_feats = []
+            for conv in self.lens_bank:
+                lens_feats.append(conv(S_stack))  # [B*H, V, N, N]
+            if lens_feats:
+                lens_cat = torch.cat(lens_feats, dim=1)  # [B*H, V*L, N, N]
+                # Split back into list of [B*H, N, N] per channel
+                lens_list = [lens_cat[:, i] for i in range(lens_cat.shape[1])]
+                feat_list = feat_list + lens_list
+        feat = torch.stack(feat_list, dim=1)
         gates = self.edge_head(feat)
         g_and, g_or, g_not, g_chain = gates[:, 0], gates[:, 1], gates[:, 2], gates[:, 3]
         S1_img = S_imgs[0]
