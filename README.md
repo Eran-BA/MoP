@@ -271,7 +271,7 @@ gates, views, kernels = mop_model.get_gate_maps(x)
 ```
 
 ### 📝 Language Models (GPT-MoP)
-*Status: planned; not on `main` yet.*
+*Status: implemented (research)* — see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)
 **Sequential Boolean Logic with Quartet Attention**
 - **Application**: Character-level language modeling
 - **MoP Components**: `ViewsLinear1D`, `Kernels1D`, `FuseExcInh1D`
@@ -290,7 +290,7 @@ logits, loss = mop_model(x, targets=y)
 ```
 
 ### 🎵 Audio Transformers (Whisper-MoP)
-*Status: planned; not on `main` yet.*
+*Status: implemented (research)* — see [`mop/models/whisper_mop.py`](mop/models/whisper_mop.py)
 **Temporal-Spectral Boolean Logic for Audio Processing**
 - **Application**: Audio transcription and understanding
 - **MoP Components**: `ViewsConv2D`, `Kernels2D`, `FuseExcInh2D`
@@ -534,29 +534,10 @@ visualize_gates(images=images, gates=gates, views=views,
 
 ## Extending to Other Architectures
 
-The MoP mechanism is designed to be architecture-agnostic:
+MoP is architecture-agnostic and already has research implementations beyond ViT:
 
-### For GPT Models (Future Work)
-```python
-# Conceptual extension:
-class GPT_MoP(nn.Module):
-    def __init__(self, vocab_size, dim, depth, heads, n_views=5, n_kernels=3):
-        self.transformer = GPTEncoder(...)
-        self.views = ViewsLinear(dim, n_views)  # Same MoP components!
-        self.kernels = Kernels1D(...)           # 1D convolution for sequences
-        self.fuse = FuseExcInh(...)
-```
-
-### For Audio Transformers (Future Work)
-```python
-# Conceptual extension:
-class Audio_MoP(nn.Module):
-    def __init__(self, dim, depth, heads, n_views=5, n_kernels=3):
-        self.transformer = AudioEncoder(...)
-        self.views = ViewsLinear(dim, n_views)  # Same MoP components!
-        self.kernels = Kernels2D(...)           # 2D for spectrograms
-        self.fuse = FuseExcInh(...)
-```
+- GPT-MoP (language): see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)
+- Whisper-MoP (audio): see [`mop/models/whisper_mop.py`](mop/models/whisper_mop.py)
 
 ## Contributing
 
