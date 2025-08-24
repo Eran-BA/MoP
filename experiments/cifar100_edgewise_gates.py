@@ -129,6 +129,11 @@ class EdgewiseMSA(nn.Module):
         gate_mode: str = "dense",
         gate_rank: int = 4,
         gate_init: str = "neutral",
+        # Q/K lens bank over tokens
+        use_lens_bank_qk: bool = False,
+        lens_qk_kernel_size: int = 3,
+        lens_qk_dilations: Optional[Tuple[int, ...]] = None,
+        lens_qk_causal: bool = False,
     ):
         super().__init__()
         assert dim % heads == 0
@@ -137,6 +142,13 @@ class EdgewiseMSA(nn.Module):
         self.beta_not = beta_not
         self.n_views = max(2, int(n_views))
         self.share_qkv = bool(share_qkv)
+        # Q/K lens bank config
+        self.use_lens_bank_qk = bool(use_lens_bank_qk)
+        self.lens_qk_kernel_size = int(lens_qk_kernel_size)
+        self.lens_qk_dilations = (
+            tuple(lens_qk_dilations) if lens_qk_dilations is not None else (1, 2)
+        )
+        self.lens_qk_causal = bool(lens_qk_causal)
         if self.share_qkv:
             self.qkv = nn.Linear(dim, dim * 3, bias=False)
             # per-view, per-head diagonal scales
@@ -150,7 +162,42 @@ class EdgewiseMSA(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
-        in_ch = 2 * self.n_views + 2
+        # If using Q/K lens, effective number of S views is number of dilations
+        base_num_S = len(self.lens_qk_dilations) if self.use_lens_bank_qk else self.n_views
+        in_ch = 2 * base_num_S + 2
+        if self.use_lens_bank_qk and not self.share_qkv:
+            raise ValueError("use_lens_bank_qk=True requires share_qkv=True")
+        if self.use_lens_bank_qk:
+            pad_same = [d * (self.lens_qk_kernel_size - 1) // 2 for d in self.lens_qk_dilations]
+            # Depthwise conv over token axis per head-dim
+            self.q_lens = nn.ModuleList(
+                [
+                    nn.Conv1d(
+                        in_channels=self.dk,
+                        out_channels=self.dk,
+                        kernel_size=self.lens_qk_kernel_size,
+                        padding=0 if self.lens_qk_causal else pad_same[i],
+                        dilation=d,
+                        groups=self.dk,
+                        bias=False,
+                    )
+                    for i, d in enumerate(self.lens_qk_dilations)
+                ]
+            )
+            self.k_lens = nn.ModuleList(
+                [
+                    nn.Conv1d(
+                        in_channels=self.dk,
+                        out_channels=self.dk,
+                        kernel_size=self.lens_qk_kernel_size,
+                        padding=0 if self.lens_qk_causal else pad_same[i],
+                        dilation=d,
+                        groups=self.dk,
+                        bias=False,
+                    )
+                    for i, d in enumerate(self.lens_qk_dilations)
+                ]
+            )
         self.edge_head = EdgewiseGateHead(
             in_ch=in_ch,
             hidden=16,
@@ -182,19 +229,48 @@ class EdgewiseMSA(nn.Module):
                 ks.append(qkv[1])
                 vs.append(qkv[2])
         scale = 1.0 / math.sqrt(self.dk)
-        S_list = [
-            torch.matmul(qs[i], ks[i].transpose(-2, -1)) * scale
-            for i in range(self.n_views)
-        ]
+        if self.use_lens_bank_qk:
+            # Build lensed Q/K for each dilation from the first view base tensors
+            q_base = qs[0]
+            k_base = ks[0]
+            Bq, Hq, Nq, Dq = q_base.shape
+            q_flat = q_base.reshape(Bq * Hq, Dq, Nq)
+            k_flat = k_base.reshape(Bq * Hq, Dq, Nq)
+            q_l_list = []
+            k_l_list = []
+            for i, (qconv, kconv) in enumerate(zip(self.q_lens, self.k_lens)):
+                if self.lens_qk_causal:
+                    left = (self.lens_qk_kernel_size - 1) * self.lens_qk_dilations[i]
+                    q_in = torch.nn.functional.pad(q_flat, (left, 0))
+                    k_in = torch.nn.functional.pad(k_flat, (left, 0))
+                else:
+                    q_in = q_flat
+                    k_in = k_flat
+                q_l = qconv(q_in)
+                k_l = kconv(k_in)
+                q_l = q_l.view(Bq, Hq, Dq, Nq).transpose(2, 3)
+                k_l = k_l.view(Bq, Hq, Dq, Nq).transpose(2, 3)
+                q_l_list.append(q_l)
+                k_l_list.append(k_l)
+            S_list = [
+                torch.matmul(q_l_list[i], k_l_list[i].transpose(-2, -1)) * scale
+                for i in range(len(self.lens_qk_dilations))
+            ]
+        else:
+            S_list = [
+                torch.matmul(qs[i], ks[i].transpose(-2, -1)) * scale
+                for i in range(self.n_views)
+            ]
         if attn_mask is not None:
             m = attn_mask == 0
             S_list = [S.masked_fill(m, float("-inf")) for S in S_list]
         A_list = [F.softmax(S, dim=-1) for S in S_list]
         C_fwd = A_list[0]
-        for i in range(1, self.n_views):
+        num_S = len(S_list)
+        for i in range(1, num_S):
             C_fwd = torch.matmul(C_fwd, A_list[i])
         C_bwd = A_list[-1]
-        for i in range(self.n_views - 2, -1, -1):
+        for i in range(num_S - 2, -1, -1):
             C_bwd = torch.matmul(C_bwd, A_list[i])
         eps = 1e-6
         BtH = B * self.h
@@ -207,10 +283,10 @@ class EdgewiseMSA(nn.Module):
         g_and, g_or, g_not, g_chain = gates[:, 0], gates[:, 1], gates[:, 2], gates[:, 3]
         S1_img = S_imgs[0]
         S_sum = S1_img
-        for i in range(1, self.n_views):
+        for i in range(1, num_S):
             S_sum = S_sum + S_imgs[i]
         lse_all = torch.logsumexp(torch.stack(S_imgs, dim=1), dim=1)
-        S_mean_others = (S_sum - S1_img) / max(1, self.n_views - 1)
+        S_mean_others = (S_sum - S1_img) / max(1, num_S - 1)
         Smix = S1_img
         Smix = Smix + g_and * (S_sum - S1_img)
         Smix = Smix + g_or * (lse_all - S1_img)
@@ -223,8 +299,9 @@ class EdgewiseMSA(nn.Module):
         A = self.attn_drop(A)
         v1 = vs[0]
         y_base = torch.matmul(A, v1)
-        transport = vs[-1]
-        for i in range(self.n_views - 1, 0, -1):
+        v_idx_last = min(len(vs) - 1, num_S - 1)
+        transport = vs[v_idx_last]
+        for i in range(num_S - 1, 0, -1):
             transport = torch.matmul(A_list[i], transport)
         y_chain = torch.matmul(A_list[0], transport)
         w = torch.sigmoid(self.chain_value_logit)
