@@ -341,6 +341,21 @@ Example (CIFAR-100 @ ~5M with low-rank XOR preset):
   --plot --out results/ab5_cifar100_5m
 ```
 
+### VOC Single-Object Localization (small-scale ImageNet-style localization)
+Run a ViT backbone to predict a single bounding box on PASCAL VOC 2007/2012 (uses the largest object per image). Writes CSVs and plots.
+
+```bash
+!python experiments/voc_localization_vit.py \
+  --year 2007 --download \
+  --img_size 224 --patch 16 --dim 256 --depth 6 --heads 4 --mlp_ratio 4.0 \
+  --batch 64 --epochs 10 --lr 0.0003 --warmup_frac 0.1 --weight_decay 0.05 \
+  --eval_every 1 --out results/voc_loc_2007
+```
+
+- **Metrics**: Validation IoU and L1, plus final Test IoU/L1.
+- **Outputs**: `vocYYYY_loc_summary.csv`, `vocYYYY_loc_test.csv`, and `vocYYYY_val_iou.png` under `results/voc_loc_YYYY/`.
+- Use `--tiny` for a quick sanity run.
+
 ## Results
 
 - Each script writes CSV summaries under `results/` subdirectories (e.g., `results/cifar10_ab_param_budgets/`).
