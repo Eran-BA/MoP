@@ -579,9 +579,9 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 ## Roadmap
 
 ### ✅ Phase 1: Core Implementation (Current)
-✅ MoP mechanism implementation
-✅ ViT integration and baseline
-✅ Parameter matching utilities
+✅ MoP mechanism implementation<br/>
+✅ ViT integration and baseline<br/>
+✅ Parameter matching utilities<br/>
 ✅ Basic visualization support
 
 ### 🔄 Phase 2: Experimental Framework (In Progress)
@@ -591,7 +591,7 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 - [ ] Advanced visualization tools
 
 ### 🔮 Phase 3: Multi-Domain Expansion (Research)
-✅ GPT-MoP for language modeling — see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)
+✅ GPT-MoP for language modeling — see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)<br/>
 ✅ Whisper-MoP for audio processing — see [`mop/models/whisper_mop.py`](mop/models/whisper_mop.py)
 - [ ] Multimodal applications
 - [ ] Theoretical analysis of boolean operations
