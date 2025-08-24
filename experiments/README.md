@@ -345,11 +345,27 @@ Example (CIFAR-100 @ ~5M with low-rank XOR preset):
 Run a ViT backbone to predict a single bounding box on PASCAL VOC 2007/2012 (uses the largest object per image). Writes CSVs and plots.
 
 ```bash
+# Baseline (A)
 !python experiments/voc_localization_vit.py \
   --year 2007 --download \
   --img_size 224 --patch 16 --dim 256 --depth 6 --heads 4 --mlp_ratio 4.0 \
   --batch 64 --epochs 10 --lr 0.0003 --warmup_frac 0.1 --weight_decay 0.05 \
-  --eval_every 1 --out results/voc_loc_2007
+  --eval_every 1 --model A --out results/voc_loc_2007/A
+
+# MoP-gated tokens (B)
+!python experiments/voc_localization_vit.py \
+  --year 2007 \
+  --img_size 224 --patch 16 --dim 256 --depth 6 --heads 4 --mlp_ratio 4.0 \
+  --batch 64 --epochs 10 --lr 0.0003 --warmup_frac 0.1 --weight_decay 0.05 \
+  --eval_every 1 --model B --mop_views 5 --mop_kernels 3 --out results/voc_loc_2007/B
+
+# Edgewise attention (E)
+!python experiments/voc_localization_vit.py \
+  --year 2007 \
+  --img_size 224 --patch 16 --dim 224 --depth 6 --heads 4 --mlp_ratio 4.0 \
+  --batch 64 --epochs 10 --lr 0.0003 --warmup_frac 0.1 --weight_decay 0.05 \
+  --eval_every 1 --model E --ew_views 4 --ew_share_qkv --ew_gate_mode lowrank --ew_gate_rank 4 \
+  --out results/voc_loc_2007/E
 ```
 
 - **Metrics**: Validation IoU and L1, plus final Test IoU/L1.

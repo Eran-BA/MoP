@@ -21,7 +21,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from mop.models.components import ViTEncoder  # type: ignore
+from mop.models.components import ViTEncoder, ViewsLinear, Kernels3, FuseExcInh  # type: ignore
+from mop.models.attention_variants import UnifiedMSA  # type: ignore
 
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -118,15 +119,126 @@ class ViTLocHead(nn.Module):
 
 
 class ViTLocalizer(nn.Module):
-    def __init__(self, dim: int, depth: int, heads: int, mlp_ratio: float, drop_path: float, patch: int, img_size: int):
+    def __init__(
+        self,
+        dim: int,
+        depth: int,
+        heads: int,
+        mlp_ratio: float,
+        drop_path: float,
+        patch: int,
+        img_size: int,
+        attn_mode: str = "A",
+        attn_kwargs: Dict | None = None,
+        mop_views: int = 5,
+        mop_kernels: int = 3,
+    ):
         super().__init__()
         num_tokens = (img_size // patch) ** 2
-        self.enc = ViTEncoder(dim=dim, depth=depth, heads=heads, mlp_ratio=mlp_ratio, drop_path=drop_path, patch=patch, num_tokens=num_tokens)
+        attn_mode = str(attn_mode).upper()
+        self.attn_mode = attn_mode
+        self.img_size = int(img_size)
+        self.patch = int(patch)
+        self.dim = int(dim)
+        # Encoder selection: A/B use baseline encoder (B applies MoP gate after), E uses UnifiedMSA blocks
+        if attn_mode in ("A", "B"):
+            self.enc = ViTEncoder(
+                dim=dim,
+                depth=depth,
+                heads=heads,
+                mlp_ratio=mlp_ratio,
+                drop_path=drop_path,
+                patch=patch,
+                num_tokens=num_tokens,
+            )
+        elif attn_mode == "E":
+            # Build UnifiedMSA-based encoder locally
+            dps = [x.item() for x in torch.linspace(0, drop_path, depth)]
+            blocks = []
+            for i in range(depth):
+                blk = _BlockUnified(dim, heads, attn_mode, attn_kwargs or {}, mlp_ratio, 0.0, dps[i])
+                blocks.append(blk)
+            self.patch_embed = _PatchEmbedCompat(dim=dim, patch=patch)
+            self.pos = nn.Parameter(torch.zeros(1, num_tokens, dim))
+            nn.init.normal_(self.pos, mean=0.0, std=0.02)
+            self.blocks = nn.ModuleList(blocks)
+            self.ln_f = nn.LayerNorm(dim)
+        else:
+            raise ValueError(f"Unknown attn_mode: {attn_mode}")
         self.head = ViTLocHead(dim)
+        # MoP components for B
+        self._mop_views = int(mop_views)
+        self._mop_kernels = int(mop_kernels)
+        if attn_mode == "B":
+            self.views = ViewsLinear(dim, n_views=self._mop_views)
+            self.kerns = Kernels3(in_ch=self._mop_views, n_kernels=self._mop_kernels)
+            self.fuse = FuseExcInh(in_ch=self._mop_views + self._mop_kernels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        tok, _ = self.enc(x)
+        if self.attn_mode in ("A", "B"):
+            tok, grid = self.enc(x)
+            if self.attn_mode == "B":
+                # Apply MoP gating on tokens using spatial grid
+                V = self.views(tok, grid)  # [B,V,Gh,Gw]
+                K = self.kerns(V)  # [B,K,Gh,Gw]
+                maps = torch.cat([V, K], dim=1)
+                G_pos, G_neg, a_pos, a_neg = self.fuse(maps)
+                gate = 1 + a_pos * G_pos - a_neg * G_neg  # [B,1,Gh,Gw]
+                Bsz, N, D = tok.shape
+                gate_flat = gate.reshape(Bsz, 1, N)
+                tok = tok.transpose(1, 2) * gate_flat
+                tok = tok.transpose(1, 2)
+            return self.head(tok)
+        # E-mode path
+        tok, (Gh, Gw) = self._enc_unified(x)
         return self.head(tok)
+
+    def _enc_unified(self, x: torch.Tensor) -> Tuple[torch.Tensor, Tuple[int, int]]:
+        # Patch+pos, then Unified blocks
+        tok, (Gh, Gw) = self.patch_embed(x)
+        tok = tok + self.pos
+        for blk in self.blocks:
+            tok = blk(tok)
+        tok = self.ln_f(tok)
+        return tok, (Gh, Gw)
+
+
+class _PatchEmbedCompat(nn.Module):
+    def __init__(self, dim: int, patch: int):
+        super().__init__()
+        self.proj = nn.Conv2d(3, dim, kernel_size=patch, stride=patch, bias=False)
+
+    def forward(self, x: torch.Tensor):
+        x = self.proj(x)
+        B, D, Gh, Gw = x.shape
+        return x.flatten(2).transpose(1, 2), (Gh, Gw)
+
+
+class _BlockUnified(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        heads: int,
+        attn_mode: str,
+        attn_kwargs: Dict,
+        mlp_ratio: float = 4.0,
+        drop: float = 0.0,
+        drop_path: float = 0.0,
+    ):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(dim)
+        self.attn = UnifiedMSA(attn_mode, dim=dim, heads=heads, **(attn_kwargs or {}))
+        self.dp1 = nn.Identity()
+        self.ln2 = nn.LayerNorm(dim)
+        # simple MLP
+        hidden = int(dim * mlp_ratio)
+        self.mlp = nn.Sequential(nn.Linear(dim, hidden, bias=False), nn.GELU(approximate="tanh"), nn.Linear(hidden, dim, bias=False))
+        self.dp2 = nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.dp1(self.attn(self.ln1(x)))
+        x = x + self.dp2(self.mlp(self.ln2(x)))
+        return x
 
 
 def bbox_iou(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
@@ -189,6 +301,21 @@ def main():
     ap.add_argument("--eval_every", type=int, default=1)
     ap.add_argument("--tiny", action="store_true")
     ap.add_argument("--out", type=str, default="results/voc_localization")
+    # Model variants
+    ap.add_argument("--model", type=str, default="A", choices=["A", "B", "E"], help="A=baseline, B=MoP gate, E=Edgewise attention")
+    # MoP (B) options
+    ap.add_argument("--mop_views", type=int, default=5)
+    ap.add_argument("--mop_kernels", type=int, default=3)
+    # Edgewise (E) options
+    ap.add_argument("--ew_views", type=int, default=4)
+    ap.add_argument("--ew_use_k3", action="store_true")
+    ap.add_argument("--ew_share_qkv", action="store_true")
+    ap.add_argument("--ew_gate_mode", type=str, default="lowrank", choices=["dense", "lowrank"])
+    ap.add_argument("--ew_gate_rank", type=int, default=4)
+    ap.add_argument("--ew_gate_init", type=str, default="neutral", choices=["neutral", "and", "or", "not", "nor", "xor", "chain", "mix5"])
+    ap.add_argument("--ew_use_lens_bank_qk", action="store_true")
+    ap.add_argument("--ew_lens_qk_dilations", type=int, nargs="+", default=None)
+    ap.add_argument("--ew_lens_qk_causal", action="store_true")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -215,6 +342,21 @@ def main():
     val_loader = DataLoader(val_ds, batch_size=args.batch, shuffle=False, num_workers=2, pin_memory=False)
     test_loader = DataLoader(test_ds, batch_size=args.batch, shuffle=False, num_workers=2, pin_memory=False)
 
+    # Build attn kwargs for E
+    attn_kwargs: Dict = {}
+    if args.model == "E":
+        attn_kwargs = dict(
+            use_k3=bool(args.ew_use_k3),
+            n_views=int(args.ew_views),
+            share_qkv=bool(args.ew_share_qkv),
+            gate_mode=str(args.ew_gate_mode),
+            gate_rank=int(args.ew_gate_rank),
+            gate_init=str(args.ew_gate_init),
+            use_lens_bank_qk=bool(args.ew_use_lens_bank_qk),
+            lens_qk_dilations=tuple(args.ew_lens_qk_dilations) if args.ew_lens_qk_dilations is not None else None,
+            lens_qk_causal=bool(args.ew_lens_qk_causal),
+        )
+
     model = ViTLocalizer(
         dim=args.dim,
         depth=args.depth,
@@ -223,6 +365,10 @@ def main():
         drop_path=args.drop_path,
         patch=args.patch,
         img_size=args.img_size,
+        attn_mode=args.model,
+        attn_kwargs=attn_kwargs,
+        mop_views=int(args.mop_views),
+        mop_kernels=int(args.mop_kernels),
     ).to(device)
     print(f"Params: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
 
