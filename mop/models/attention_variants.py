@@ -552,8 +552,10 @@ class EdgewiseMSA(nn.Module):
         A = self.attn_drop(A)
         v1 = vs[0]
         y_base = torch.matmul(A, v1)
-        transport = vs[-1]
-        for i in range(self.n_views - 1, 0, -1):
+        # Align value transport chain length with number of S views actually used
+        v_idx_last = min(len(vs) - 1, num_S - 1)
+        transport = vs[v_idx_last]
+        for i in range(num_S - 1, 0, -1):
             transport = torch.matmul(A_list[i], transport)
         y_chain = torch.matmul(A_list[0], transport)
         w = torch.sigmoid(self.chain_value_logit)
