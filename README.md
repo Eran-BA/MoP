@@ -59,6 +59,7 @@ The MoP mechanism is **architecture-agnostic** and has been successfully impleme
 - 🧠 **Universal Boolean Logic**: Learn AND/OR/NOT operations across different modalities
 - 🔧 **Architecture-Agnostic**: Successfully implemented for ViT, GPT, and Whisper
 - 📊 **Parameter-Matched Comparisons**: Fair evaluation with identical parameter counts
+- 🧩 **Optional MoE MLPs**: Switch ViT-MoP’s MLP to a Mixture-of-Experts variant (top‑1 routing)
 - 🎯 **Multiple Domains**: Vision (CIFAR-10/100), Language (GPT), Audio (Whisper)
 - 🔬 **Research-Ready**: Complete experimental framework and statistical testing
 - 📈 **Reproducible**: Deterministic training with multiple random seeds
@@ -513,6 +514,17 @@ Key properties:
 - Per-head, per-edge gates over QK score-space
 - Multi-view composition with AND/OR/NOT/CHAIN channels
 - Dense or low-rank gate parameterizations; preset-biased initializations
+
+### Optional MoE (Mixture of Experts) MLP
+Use expert-MLPs per transformer block for added capacity with simple token‑wise routing.
+
+```python
+from mop.models import ViT_MoP
+
+# Enable MoE MLPs (top-1 routing, 4 experts)
+model = ViT_MoP(dim=256, depth=6, heads=4, n_classes=100,
+                n_views=5, n_kernels=3, use_moe=True, moe_experts=4)
+```
 
 ### Ablation Studies (Planned)
 ```bash

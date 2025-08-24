@@ -8,7 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .components import FuseExcInh, Kernels3, ViewsLinear, ViTEncoder
+from .components import (FuseExcInh, Kernels3, ViewsLinear, ViTEncoder,
+                         ViTEncoderMoE)
 
 
 class ViT_MoP(nn.Module):
@@ -42,21 +43,35 @@ class ViT_MoP(nn.Module):
         drop_path=0.1,
         patch=4,
         img_size=32,
+        use_moe: bool = False,
+        moe_experts: int = 4,
     ):
         super().__init__()
         assert dim % heads == 0, f"dim {dim} not divisible by heads {heads}"
 
         num_tokens = (img_size // patch) ** 2
 
-        self.enc = ViTEncoder(
-            dim=dim,
-            depth=depth,
-            heads=heads,
-            mlp_ratio=mlp_ratio,
-            drop_path=drop_path,
-            patch=patch,
-            num_tokens=num_tokens,
-        )
+        if use_moe:
+            self.enc = ViTEncoderMoE(
+                dim=dim,
+                depth=depth,
+                heads=heads,
+                mlp_ratio=mlp_ratio,
+                drop_path=drop_path,
+                patch=patch,
+                num_tokens=num_tokens,
+                num_experts=int(moe_experts),
+            )
+        else:
+            self.enc = ViTEncoder(
+                dim=dim,
+                depth=depth,
+                heads=heads,
+                mlp_ratio=mlp_ratio,
+                drop_path=drop_path,
+                patch=patch,
+                num_tokens=num_tokens,
+            )
 
         self.views = ViewsLinear(dim, n_views=n_views)
         self.kerns = Kernels3(in_ch=n_views, n_kernels=n_kernels)
