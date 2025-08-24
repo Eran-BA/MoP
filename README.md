@@ -585,9 +585,9 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 - [ ] Comprehensive ablation studies
 - [ ] Advanced visualization tools
 
-### 🔮 Phase 3: Multi-Domain Expansion (Future)
-- [ ] GPT-MoP for language modeling
-- [ ] Whisper-MoP for audio processing
+### 🔮 Phase 3: Multi-Domain Expansion (Research)
+- [x] GPT-MoP for language modeling — see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)
+- [x] Whisper-MoP for audio processing — see [`mop/models/whisper_mop.py`](mop/models/whisper_mop.py)
 - [ ] Multimodal applications
 - [ ] Theoretical analysis of boolean operations
 
