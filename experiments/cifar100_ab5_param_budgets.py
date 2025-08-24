@@ -424,6 +424,13 @@ def main():
         choices=["neutral", "and", "or", "not", "nor", "xor", "chain"],
         help="Preset gate initialization bias",
     )
+    # Edgewise lens-bank over Q/K tokens (new)
+    ap.add_argument("--ew_use_lens_bank_qk", action="store_true",
+                    help="Enable Q/K token-axis depthwise conv lens bank for E")
+    ap.add_argument("--ew_lens_qk_dilations", type=int, nargs="+", default=None,
+                    help="Dilations for Q/K lens bank (e.g., 1 2 3)")
+    ap.add_argument("--ew_lens_qk_causal", action="store_true",
+                    help="Use causal padding for Q/K lens bank")
     ap.add_argument(
         "--ew_variants",
         type=str,
@@ -565,6 +572,11 @@ def main():
                                 "gate_mode": args.ew_gate_mode,
                                 "gate_rank": int(args.ew_gate_rank),
                                 "gate_init": str(args.ew_gate_init),
+                                # lens-bank flags participate in param matching
+                                "use_lens_bank_qk": bool(args.ew_use_lens_bank_qk),
+                                "lens_qk_dilations": tuple(args.ew_lens_qk_dilations)
+                                if args.ew_lens_qk_dilations is not None else None,
+                                "lens_qk_causal": bool(args.ew_lens_qk_causal),
                             }
                             ew_cfg2, ew_p2, within = find_model_config_match_baseline(
                                 ViTEdgewise,
@@ -724,6 +736,10 @@ def main():
                         gate_mode=args.ew_gate_mode,
                         gate_rank=int(args.ew_gate_rank),
                         gate_init=str(args.ew_gate_init),
+                        use_lens_bank_qk=bool(args.ew_use_lens_bank_qk),
+                        lens_qk_dilations=tuple(args.ew_lens_qk_dilations)
+                        if args.ew_lens_qk_dilations is not None else None,
+                        lens_qk_causal=bool(args.ew_lens_qk_causal),
                     ).to(device)
                 else:
                     for mode, init in e_variant_specs:
@@ -739,6 +755,10 @@ def main():
                             gate_mode=str(mode),
                             gate_rank=int(args.ew_gate_rank),
                             gate_init=str(init),
+                            use_lens_bank_qk=bool(args.ew_use_lens_bank_qk),
+                            lens_qk_dilations=tuple(args.ew_lens_qk_dilations)
+                            if args.ew_lens_qk_dilations is not None else None,
+                            lens_qk_causal=bool(args.ew_lens_qk_causal),
                         ).to(device)
 
             # Params line

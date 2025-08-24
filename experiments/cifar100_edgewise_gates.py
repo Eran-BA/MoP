@@ -339,6 +339,10 @@ class BlockEdgewise(nn.Module):
         gate_mode: str = "dense",
         gate_rank: int = 4,
         gate_init: str = "neutral",
+        use_lens_bank_qk: bool = False,
+        lens_qk_kernel_size: int = 3,
+        lens_qk_dilations: Optional[Tuple[int, ...]] = None,
+        lens_qk_causal: bool = False,
     ):
         super().__init__()
         self.ln1 = nn.LayerNorm(dim)
@@ -354,6 +358,10 @@ class BlockEdgewise(nn.Module):
             gate_mode=gate_mode,
             gate_rank=gate_rank,
             gate_init=gate_init,
+            use_lens_bank_qk=use_lens_bank_qk,
+            lens_qk_kernel_size=lens_qk_kernel_size,
+            lens_qk_dilations=lens_qk_dilations,
+            lens_qk_causal=lens_qk_causal,
         )
         self.dp1 = DropPath(drop_path) if DropPath is not None else nn.Identity()
         self.ln2 = nn.LayerNorm(dim)
@@ -504,6 +512,11 @@ def main():
         default="neutral",
         choices=["neutral", "and", "or", "chain"],
     )
+    # Q/K lens bank flags
+    ap.add_argument("--use_lens_bank_qk", action="store_true")
+    ap.add_argument("--lens_qk_kernel_size", type=int, default=3)
+    ap.add_argument("--lens_qk_dilations", type=int, nargs="+", default=[1, 2])
+    ap.add_argument("--lens_qk_causal", action="store_true")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -531,6 +544,8 @@ def main():
             gate_mode=args.ew_gate_mode,
             gate_rank=args.ew_gate_rank,
             gate_init=args.ew_gate_init,
+            # pass lens flags through blocks
+            use_k3=True,
         ).to(device)
         print(
             f"Params: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}"
