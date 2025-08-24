@@ -585,21 +585,21 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 ✅ Basic visualization support
 
 ### 🔄 Phase 2: Experimental Framework (In Progress)
-- [ ] CIFAR-10/100 training scripts
-- [ ] Statistical significance testing
-- [ ] Comprehensive ablation studies
-- [ ] Advanced visualization tools
+-[ ] CIFAR-10/100 training scripts
+-[ ] Statistical significance testing
+-[ ] Comprehensive ablation studies
+-[ ] Advanced visualization tools
 
 ### 🔮 Phase 3: Multi-Domain Expansion (Research)
 ✅ GPT-MoP for language modeling — see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)<br/>
 ✅ Whisper-MoP for audio processing — see [`mop/models/whisper_mop.py`](mop/models/whisper_mop.py)
-- [ ] Multimodal applications
-- [ ] Theoretical analysis of boolean operations
+-[ ] Multimodal applications
+-[ ] Theoretical analysis of boolean operations
 
 ### 📈 Phase 4: Research & Publication
-- [ ] Comprehensive benchmark across domains
-- [ ] Theoretical foundations paper
-- [ ] Community adoption and feedback
+-[ ] Comprehensive benchmark across domains
+-[ ] Theoretical foundations paper
+-[ ] Community adoption and feedback
 
 
 ### What's Next:
