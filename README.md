@@ -490,6 +490,30 @@ from mop.models import UnifiedMSA
 attn = UnifiedMSA(mode="C", dim=256, heads=4, use_transpose_cues=True, t1=0.2, t2=0.2)
 ```
 
+### Multi-Head MoP Attention
+MoP is supported inside multi-head attention via `UnifiedMSA` (mode "E" for Edgewise; mode "D" for Multi-Hop). Gates are learned per head over QK score maps with multi-view composition.
+
+```python
+from mop.models import UnifiedMSA
+
+# Example: multi-head Edgewise MoP attention (low-rank gates with preset mix)
+attn = UnifiedMSA(
+    mode="E",           # A/B/C/D/E
+    dim=256,
+    heads=6,
+    n_views=5,
+    use_k3=True,
+    share_qkv=True,
+    gate_mode="lowrank",  # or "dense"
+    gate_rank=4,
+    gate_init="mix5",     # neutral|and|or|not|nor|xor|chain|mix5
+)
+```
+Key properties:
+- Per-head, per-edge gates over QK score-space
+- Multi-view composition with AND/OR/NOT/CHAIN channels
+- Dense or low-rank gate parameterizations; preset-biased initializations
+
 ### Ablation Studies (Planned)
 ```bash
 !python experiments/ablation_study.py --variants full views_only kernels_only no_gate
