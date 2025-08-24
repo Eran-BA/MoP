@@ -393,6 +393,11 @@ class ViTEdgewise(nn.Module):
         gate_mode: str = "dense",
         gate_rank: int = 4,
         gate_init: str = "neutral",
+        # Q/K lens bank flags
+        use_lens_bank_qk: bool = False,
+        lens_qk_kernel_size: int = 3,
+        lens_qk_dilations: Optional[Tuple[int, ...]] = None,
+        lens_qk_causal: bool = False,
     ):
         super().__init__()
         if PatchEmbed is None:
@@ -419,6 +424,10 @@ class ViTEdgewise(nn.Module):
                     gate_mode=gate_mode,
                     gate_rank=gate_rank,
                     gate_init=gate_init,
+                    use_lens_bank_qk=use_lens_bank_qk,
+                    lens_qk_kernel_size=lens_qk_kernel_size,
+                    lens_qk_dilations=lens_qk_dilations,
+                    lens_qk_causal=lens_qk_causal,
                 )
                 for i in range(depth)
             ]
