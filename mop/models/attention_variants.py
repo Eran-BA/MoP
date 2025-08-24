@@ -383,7 +383,10 @@ class EdgewiseMSA(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim, bias=False)
         self.proj_drop = nn.Dropout(proj_drop)
-        in_ch = 2 * self.n_views + 2
+        base_num_S = self.n_views
+        if self.use_lens_bank_qk:
+            base_num_S = len(self.lens_qk_dilations)
+        in_ch = 2 * base_num_S + 2
         if self.use_lens_bank_qk and not self.share_qkv:
             raise ValueError("use_lens_bank_qk=True requires share_qkv=True for now")
         if self.use_lens_bank_qk:
@@ -425,18 +428,18 @@ class EdgewiseMSA(nn.Module):
             self.lens_bank = nn.ModuleList(
                 [
                     nn.Conv2d(
-                        in_channels=self.n_views,
-                        out_channels=self.n_views,
+                        in_channels=base_num_S,
+                        out_channels=base_num_S,
                         kernel_size=self.lens_kernel_size,
                         padding=d,
                         dilation=d,
-                        groups=self.n_views,
+                        groups=base_num_S,
                         bias=False,
                     )
                     for d in self.lens_dilations
                 ]
             )
-            in_ch = in_ch + self.n_views * len(self.lens_dilations)
+            in_ch = in_ch + base_num_S * len(self.lens_dilations)
         self.edge_head = EdgewiseGateHead(
             in_ch=in_ch,
             hidden=16,
@@ -503,10 +506,12 @@ class EdgewiseMSA(nn.Module):
             S_list = [S.masked_fill(m, float("-inf")) for S in S_list]
         A_list = [F.softmax(S, dim=-1) for S in S_list]
         C_fwd = A_list[0]
-        for i in range(1, self.n_views):
+        # Use the number of S views that were actually constructed
+        num_S = len(S_list)
+        for i in range(1, num_S):
             C_fwd = torch.matmul(C_fwd, A_list[i])
         C_bwd = A_list[-1]
-        for i in range(self.n_views - 2, -1, -1):
+        for i in range(num_S - 2, -1, -1):
             C_bwd = torch.matmul(C_bwd, A_list[i])
         eps = 1e-6
         BtH = B * self.h
@@ -531,10 +536,10 @@ class EdgewiseMSA(nn.Module):
         g_and, g_or, g_not, g_chain = gates[:, 0], gates[:, 1], gates[:, 2], gates[:, 3]
         S1_img = S_imgs[0]
         S_sum = S1_img
-        for i in range(1, self.n_views):
+        for i in range(1, num_S):
             S_sum = S_sum + S_imgs[i]
         lse_all = torch.logsumexp(torch.stack(S_imgs, dim=1), dim=1)
-        S_mean_others = (S_sum - S1_img) / max(1, self.n_views - 1)
+        S_mean_others = (S_sum - S1_img) / max(1, num_S - 1)
         Smix = S1_img
         Smix = Smix + g_and * (S_sum - S1_img)
         Smix = Smix + g_or * (lse_all - S1_img)
