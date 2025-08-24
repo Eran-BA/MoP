@@ -40,7 +40,7 @@ Colab-friendly one cell to run A, B, E (neutral) and E+ (mix5) at ~5M.
 
 > **Project status (2025-08-17):** Research prototype. The `main` branch implements **ViT-MoP**. Although **GPT-MoP** and **Whisper-MoP** are *planned* (concept only; not on `main`). Reported metrics here are tiny-smoke sanity checks and **not** conclusive.
 
-MoP introduces even spatial boolean logic capabilities to Transformers through a novel **Mixture of Products** mechanism. This approach enhances spatial reasoning by learning excitatory/inhibitory gating patterns that can realize boolean operations like AND, OR, and NOT over feature representations.
+MoP introduces spatial boolean logic into Transformers through a novel **Mixture of Products** mechanism. It operates in the attention score-space: learn excitatory/inhibitory gates that mix per-edge QK score maps (or their softmaxes) to realize boolean operations like AND, OR, and NOT over attention maps, before value aggregation (then re-mask and re-normalize).
 
 The MoP mechanism is **architecture-agnostic** and has been successfully implemented across multiple modalities:
 - **Vision Transformers (ViT)** - Spatial reasoning for images ✅ *Implemented*
