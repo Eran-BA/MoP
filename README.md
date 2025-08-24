@@ -49,7 +49,7 @@ Colab-friendly one cell to run A, B, E (neutral) and E+ (mix5) at ~5M.
 MoP introduces spatial boolean logic into Transformers through a novel **Mixture of Products** mechanism. It operates in the attention score-space: learn excitatory/inhibitory gates that mix per-edge QK score maps (or their softmaxes) to realize boolean operations like AND, OR, and NOT over attention maps, before value aggregation (then re-mask and re-normalize).
 
 The MoP mechanism is **architecture-agnostic** and has been successfully implemented across multiple modalities:
-- **Vision Transformers (ViT)** - Spatial reasoning for images ✅ *Implemented* — see  [`mop/models/vit.py`](mop/models/vit.py)
+- **Vision Transformers (ViT)** - Spatial reasoning for images ✅ *Implemented* — see [`mop/models/vit_baseline.py`](mop/models/vit_baseline.py) and [`mop/models/vit_mop.py`](mop/models/vit_mop.py)
 - **GPT Models** - Sequential token interactions with Quartet Attention ✅ *Implemented (research)* — see [`mop/models/gpt_mop.py`](mop/models/gpt_mop.py)
 - **Audio Transformers (Whisper)** - Temporal-spectral patterns ✅ *Implemented (research)* — see [`mop/models/whisper_mop.py`](mop/models/whisper_mop.py)
 - **Any Transformer Architecture** - General feature gating 🔮 *Extensible*
