@@ -131,14 +131,26 @@ class ViTLocalizer(nn.Module):
 
 def bbox_iou(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor:
     # boxes normalized [x0,y0,x1,y1], shape [...,4]
-    xA = torch.maximum(box1[..., 0], box2[..., 0])
-    yA = torch.maximum(box1[..., 1], box2[..., 1])
-    xB = torch.minimum(box1[..., 2], box2[..., 2])
-    yB = torch.minimum(box1[..., 3], box2[..., 3])
+    # Normalize corners: ensure x0<=x1, y0<=y1 and clamp to [0,1]
+    x0_1 = torch.minimum(box1[..., 0], box1[..., 2]).clamp(0.0, 1.0)
+    y0_1 = torch.minimum(box1[..., 1], box1[..., 3]).clamp(0.0, 1.0)
+    x1_1 = torch.maximum(box1[..., 0], box1[..., 2]).clamp(0.0, 1.0)
+    y1_1 = torch.maximum(box1[..., 1], box1[..., 3]).clamp(0.0, 1.0)
+    x0_2 = torch.minimum(box2[..., 0], box2[..., 2]).clamp(0.0, 1.0)
+    y0_2 = torch.minimum(box2[..., 1], box2[..., 3]).clamp(0.0, 1.0)
+    x1_2 = torch.maximum(box2[..., 0], box2[..., 2]).clamp(0.0, 1.0)
+    y1_2 = torch.maximum(box2[..., 1], box2[..., 3]).clamp(0.0, 1.0)
+
+    xA = torch.maximum(x0_1, x0_2)
+    yA = torch.maximum(y0_1, y0_2)
+    xB = torch.minimum(x1_1, x1_2)
+    yB = torch.minimum(y1_1, y1_2)
     inter = torch.clamp(xB - xA, min=0) * torch.clamp(yB - yA, min=0)
-    area1 = torch.clamp(box1[..., 2] - box1[..., 0], min=0) * torch.clamp(box1[..., 3] - box1[..., 1], min=0)
-    area2 = torch.clamp(box2[..., 2] - box2[..., 0], min=0) * torch.clamp(box2[..., 3] - box2[..., 1], min=0)
-    union = area1 + area2 - inter + 1e-6
+    area1 = torch.clamp(x1_1 - x0_1, min=0) * torch.clamp(y1_1 - y0_1, min=0)
+    area2 = torch.clamp(x1_2 - x0_2, min=0) * torch.clamp(y1_2 - y0_2, min=0)
+    union = area1 + area2 - inter
+    # Avoid div-by-zero for degenerate boxes without biasing valid ratios
+    union = torch.clamp(union, min=1e-12)
     return inter / union
 
 
