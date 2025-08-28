@@ -11,7 +11,7 @@ MoP: Where spatial reasoning meets neural architecture
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-red.svg)](https://pytorch.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/license/apache-2-0)
-[![ORCID](https://img.shields.io/badge/ORCID-0009--0005--5186--5594-green.svg)](https://orcid.org/0009-0005-5186-5594)
+
 
 ## Overview
 ## Install
@@ -626,7 +626,6 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENS
 ## Contact & Collaboration
 
 **Eran Ben Artzy**
-- ORCID: [0009-0005-5186-5594](https://orcid.org/0009-0005-5186-5594)
 - LinkedIn: [eran-ben-artzy](https://linkedin.com/in/eran-ben-artzy)
 - GitHub: [@Eran-BA](https://github.com/Eran-BA)
 
